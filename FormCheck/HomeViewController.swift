@@ -10,6 +10,7 @@ import UIKit
 /// Filter type for exercises
 enum ExerciseFilter: String, CaseIterable {
     case all = "All exercises"
+    case favorites = "Favorites"
     case withEquipment = "With equipment"
     case noEquipment = "No equipment"
 }
@@ -21,6 +22,9 @@ final class HomeViewController: UIViewController {
     
     private var currentFilter: ExerciseFilter = .all
     private var filteredExercises: [Exercise] = ExerciseDataSource.allExercises
+    private var searchQuery: String = ""
+    private var favoriteExerciseNames: Set<String> = []
+    private let favoritesKey = "FormCheck_FavoriteExercises"
     
     // MARK: - UI Components
     
@@ -62,6 +66,22 @@ final class HomeViewController: UIViewController {
         return button
     }()
     
+    private let searchBar: UISearchBar = {
+        let searchBar = UISearchBar()
+        searchBar.placeholder = "Search exercises..."
+        searchBar.searchBarStyle = .minimal
+        searchBar.barTintColor = .black
+        searchBar.tintColor = .white
+        if let textField = searchBar.value(forKey: "searchField") as? UITextField {
+            textField.textColor = .white
+            textField.backgroundColor = UIColor.white.withAlphaComponent(0.1)
+        }
+        searchBar.translatesAutoresizingMaskIntoConstraints = false
+        return searchBar
+    }()
+    
+    private var searchBarHeightConstraint: NSLayoutConstraint?
+    
     private let exerciseStackView: UIStackView = {
         let stackView = UIStackView()
         stackView.axis = .vertical
@@ -70,13 +90,25 @@ final class HomeViewController: UIViewController {
         return stackView
     }()
     
+    private let scrollView: UIScrollView = {
+        let scrollView = UIScrollView()
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        return scrollView
+    }()
+    
     // MARK: - Lifecycle
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        loadFavorites()
         setupUI()
-        setupDropdownAction()
+        setupActions()
         updateExerciseDisplay()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        updateFavoriteButtonAppearance()
     }
     
     // MARK: - Setup
@@ -90,7 +122,9 @@ final class HomeViewController: UIViewController {
         view.addSubview(dropdownButton)
         view.addSubview(favoriteButton)
         view.addSubview(searchButton)
-        view.addSubview(exerciseStackView)
+        view.addSubview(searchBar)
+        view.addSubview(scrollView)
+        scrollView.addSubview(exerciseStackView)
         
         // Layout constraints
         NSLayoutConstraint.activate([
@@ -116,19 +150,137 @@ final class HomeViewController: UIViewController {
             searchButton.widthAnchor.constraint(equalToConstant: 32),
             searchButton.heightAnchor.constraint(equalToConstant: 32),
             
+            // Search bar (initially hidden)
+            searchBar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            searchBar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+            searchBar.topAnchor.constraint(equalTo: dropdownButton.bottomAnchor, constant: 8),
+            
+            // Scroll view
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: searchBar.bottomAnchor, constant: 8),
+            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            
             // Exercise stack view
-            exerciseStackView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
-            exerciseStackView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
-            exerciseStackView.topAnchor.constraint(equalTo: dropdownButton.bottomAnchor, constant: 32),
+            exerciseStackView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor, constant: 24),
+            exerciseStackView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor, constant: -24),
+            exerciseStackView.topAnchor.constraint(equalTo: scrollView.topAnchor, constant: 16),
+            exerciseStackView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+            exerciseStackView.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -48),
         ])
+        
+        // Create and store height constraint for animation
+        searchBarHeightConstraint = searchBar.heightAnchor.constraint(equalToConstant: 0)
+        searchBarHeightConstraint?.isActive = true
+        
+        searchBar.delegate = self
+        searchBar.alpha = 0
     }
     
-    private func setupDropdownAction() {
-        let action = UIAction { [weak self] _ in
+    private func setupActions() {
+        // Dropdown action
+        let dropdownAction = UIAction { [weak self] _ in
             self?.showFilterMenu()
         }
-        dropdownButton.addAction(action, for: .touchUpInside)
+        dropdownButton.addAction(dropdownAction, for: .touchUpInside)
+        
+        // Favorite button action
+        let favoriteAction = UIAction { [weak self] _ in
+            self?.toggleFavoritesFilter()
+        }
+        favoriteButton.addAction(favoriteAction, for: .touchUpInside)
+        
+        // Search button action
+        let searchAction = UIAction { [weak self] _ in
+            self?.toggleSearch()
+        }
+        searchButton.addAction(searchAction, for: .touchUpInside)
     }
+    
+    // MARK: - Favorites Management
+    
+    private func loadFavorites() {
+        if let savedFavorites = UserDefaults.standard.array(forKey: favoritesKey) as? [String] {
+            favoriteExerciseNames = Set(savedFavorites)
+        }
+    }
+    
+    private func saveFavorites() {
+        UserDefaults.standard.set(Array(favoriteExerciseNames), forKey: favoritesKey)
+    }
+    
+    private func toggleFavorite(for exercise: Exercise) {
+        if favoriteExerciseNames.contains(exercise.name) {
+            favoriteExerciseNames.remove(exercise.name)
+        } else {
+            favoriteExerciseNames.insert(exercise.name)
+        }
+        saveFavorites()
+        
+        // Haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+        
+        // Update display
+        updateExerciseDisplay()
+        updateFavoriteButtonAppearance()
+    }
+    
+    private func isFavorite(_ exercise: Exercise) -> Bool {
+        return favoriteExerciseNames.contains(exercise.name)
+    }
+    
+    private func toggleFavoritesFilter() {
+        if currentFilter == .favorites {
+            selectFilter(.all)
+        } else {
+            selectFilter(.favorites)
+        }
+    }
+    
+    private func updateFavoriteButtonAppearance() {
+        let config = UIImage.SymbolConfiguration(pointSize: 24, weight: .regular)
+        if currentFilter == .favorites {
+            favoriteButton.setImage(UIImage(systemName: "heart.fill", withConfiguration: config), for: .normal)
+            favoriteButton.tintColor = .systemPink
+        } else {
+            favoriteButton.setImage(UIImage(systemName: "heart", withConfiguration: config), for: .normal)
+            favoriteButton.tintColor = .white
+        }
+    }
+    
+    // MARK: - Search Management
+    
+    private func toggleSearch() {
+        let isSearchVisible = searchBar.alpha > 0
+        
+        if isSearchVisible {
+            // Hide search
+            searchBar.resignFirstResponder()
+            searchBarHeightConstraint?.constant = 0
+            
+            UIView.animate(withDuration: 0.3, animations: {
+                self.searchBar.alpha = 0
+                self.view.layoutIfNeeded()
+            }) { _ in
+                self.searchBar.text = ""
+                self.searchQuery = ""
+                self.updateFilteredExercises()
+                self.updateExerciseDisplay()
+            }
+        } else {
+            // Show search
+            searchBarHeightConstraint?.constant = 50
+            
+            UIView.animate(withDuration: 0.3) {
+                self.searchBar.alpha = 1
+                self.view.layoutIfNeeded()
+            }
+            searchBar.becomeFirstResponder()
+        }
+    }
+    
+    // MARK: - Filter Management
     
     private func showFilterMenu() {
         let alertController = UIAlertController(title: "Filter Exercises", message: nil, preferredStyle: .actionSheet)
@@ -160,27 +312,60 @@ final class HomeViewController: UIViewController {
         dropdownButton.setTitle("\(filter.rawValue) ▼", for: .normal)
         updateFilteredExercises()
         updateExerciseDisplay()
+        updateFavoriteButtonAppearance()
     }
     
     private func updateFilteredExercises() {
+        // First apply category filter
+        var exercises: [Exercise]
         switch currentFilter {
         case .all:
-            filteredExercises = ExerciseDataSource.allExercises
+            exercises = ExerciseDataSource.allExercises
+        case .favorites:
+            exercises = ExerciseDataSource.allExercises.filter { favoriteExerciseNames.contains($0.name) }
         case .withEquipment:
-            filteredExercises = ExerciseDataSource.allExercises.filter { $0.requiresEquipment }
+            exercises = ExerciseDataSource.allExercises.filter { $0.requiresEquipment }
         case .noEquipment:
-            filteredExercises = ExerciseDataSource.allExercises.filter { !$0.requiresEquipment }
+            exercises = ExerciseDataSource.allExercises.filter { !$0.requiresEquipment }
         }
+        
+        // Then apply search filter
+        if !searchQuery.isEmpty {
+            exercises = exercises.filter { exercise in
+                exercise.name.localizedCaseInsensitiveContains(searchQuery) ||
+                exercise.description.localizedCaseInsensitiveContains(searchQuery) ||
+                exercise.primaryMuscles.localizedCaseInsensitiveContains(searchQuery)
+            }
+        }
+        
+        filteredExercises = exercises
     }
     
     private func updateExerciseDisplay() {
         // Clear existing buttons
         exerciseStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
-        // Create buttons for filtered exercises
-        for exercise in filteredExercises {
-            let button = createExerciseButton(for: exercise)
-            exerciseStackView.addArrangedSubview(button)
+        if filteredExercises.isEmpty {
+            // Show empty state
+            let emptyLabel = UILabel()
+            if currentFilter == .favorites {
+                emptyLabel.text = "No favorite exercises yet.\nTap the ♡ on any exercise to add it!"
+            } else if !searchQuery.isEmpty {
+                emptyLabel.text = "No exercises found matching '\(searchQuery)'"
+            } else {
+                emptyLabel.text = "No exercises available"
+            }
+            emptyLabel.font = .systemFont(ofSize: 16, weight: .regular)
+            emptyLabel.textColor = .gray
+            emptyLabel.textAlignment = .center
+            emptyLabel.numberOfLines = 0
+            exerciseStackView.addArrangedSubview(emptyLabel)
+        } else {
+            // Create buttons for filtered exercises
+            for exercise in filteredExercises {
+                let button = createExerciseButton(for: exercise)
+                exerciseStackView.addArrangedSubview(button)
+            }
         }
     }
     
@@ -216,8 +401,10 @@ final class HomeViewController: UIViewController {
         // Heart button
         let heartButton = UIButton(type: .system)
         let heartConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
-        heartButton.setImage(UIImage(systemName: "heart", withConfiguration: heartConfig), for: .normal)
-        heartButton.tintColor = .white
+        let isFav = isFavorite(exercise)
+        let heartImage = isFav ? "heart.fill" : "heart"
+        heartButton.setImage(UIImage(systemName: heartImage, withConfiguration: heartConfig), for: .normal)
+        heartButton.tintColor = isFav ? .systemPink : .white
         heartButton.translatesAutoresizingMaskIntoConstraints = false
         
         // Add subviews
@@ -241,9 +428,14 @@ final class HomeViewController: UIViewController {
             heartButton.heightAnchor.constraint(equalToConstant: 32),
         ])
         
-        // Add action
+        // Add action to main button
         button.addAction(UIAction { [weak self] _ in
             self?.openExerciseTutorial(exercise)
+        }, for: .touchUpInside)
+        
+        // Add action to heart button (prevent propagation)
+        heartButton.addAction(UIAction { [weak self] _ in
+            self?.toggleFavorite(for: exercise)
         }, for: .touchUpInside)
         
         return button
@@ -253,5 +445,27 @@ final class HomeViewController: UIViewController {
         let tutorialVC = ExerciseTutorialViewController()
         tutorialVC.exercise = exercise
         navigationController?.pushViewController(tutorialVC, animated: true)
+    }
+}
+
+// MARK: - UISearchBarDelegate
+
+extension HomeViewController: UISearchBarDelegate {
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        searchQuery = searchText
+        updateFilteredExercises()
+        updateExerciseDisplay()
+    }
+    
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.resignFirstResponder()
+    }
+    
+    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.text = ""
+        searchQuery = ""
+        searchBar.resignFirstResponder()
+        updateFilteredExercises()
+        updateExerciseDisplay()
     }
 }

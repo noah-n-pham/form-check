@@ -1,12 +1,13 @@
 {
-    "data": [
-        {
-            "filename": "ezgif-52c2de5891bc84.mp4",
-            "idiom": "universal"
-        }
-    ],
-    "info": {
-        "version": 1,
-        "author": "xcode"
+  "data" : [
+    {
+      "filename" : "ezgif-52c2de5891bc84.mp4",
+      "idiom" : "universal",
+      "universal-type-identifier" : "public.mpeg-4"
     }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
 }
