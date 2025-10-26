@@ -7,7 +7,6 @@
 
 import Foundation
 import Vision
-import XCTest
 
 /// Mock test data for verification
 /// This would typically be in a separate test target in production
@@ -129,19 +128,19 @@ class SquatAnalyzerTests {
         let leftShoulder = CGPoint(x: baseX, y: shoulderY)
         let rightShoulder = CGPoint(x: baseX + 30, y: shoulderY)
         
-        // Create joint positions dictionary using VNRecognizedPointKey
-        var jointPositions: [VNRecognizedPointKey: CGPoint] = [:]
-        jointPositions[VNRecognizedPointKey(rawValue: "left_hip")] = leftHip
-        jointPositions[VNRecognizedPointKey(rawValue: "right_hip")] = rightHip
-        jointPositions[VNRecognizedPointKey(rawValue: "left_knee")] = leftKnee
-        jointPositions[VNRecognizedPointKey(rawValue: "right_knee")] = rightKnee
-        jointPositions[VNRecognizedPointKey(rawValue: "left_ankle")] = leftAnkle
-        jointPositions[VNRecognizedPointKey(rawValue: "right_ankle")] = rightAnkle
-        jointPositions[VNRecognizedPointKey(rawValue: "left_shoulder")] = leftShoulder
-        jointPositions[VNRecognizedPointKey(rawValue: "right_shoulder")] = rightShoulder
+        // Create joint positions dictionary using correct JointName type
+        var jointPositions: [VNHumanBodyPoseObservation.JointName: CGPoint] = [:]
+        jointPositions[.leftHip] = leftHip
+        jointPositions[.rightHip] = rightHip
+        jointPositions[.leftKnee] = leftKnee
+        jointPositions[.rightKnee] = rightKnee
+        jointPositions[.leftAnkle] = leftAnkle
+        jointPositions[.rightAnkle] = rightAnkle
+        jointPositions[.leftShoulder] = leftShoulder
+        jointPositions[.rightShoulder] = rightShoulder
         
         // Create confidences
-        var confidences: [VNRecognizedPointKey: Float] = [:]
+        var confidences: [VNHumanBodyPoseObservation.JointName: Float] = [:]
         for key in jointPositions.keys {
             confidences[key] = 0.9
         }

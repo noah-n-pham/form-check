@@ -12,6 +12,11 @@ import CoreGraphics
 /// Analyzes squat form using pose data
 final class SquatAnalyzer {
     
+    // MARK: - Components
+    
+    /// Smart side selector for choosing best quality side
+    private let sideSelector = SideSelector()
+    
     // MARK: - State Tracking
     
     /// Current state in the squat movement cycle
@@ -20,8 +25,31 @@ final class SquatAnalyzer {
     /// Previous hip Y position for tracking movement direction
     private var previousHipY: CGFloat?
     
-    /// Y position threshold for detecting squat depth
-    private let squatDepthThreshold: CGFloat = 20.0
+    /// Y position threshold for detecting squat depth (adjusted for side view at 5-7 feet)
+    /// Hip must drop at least 50 pixels below knee to be considered "in squat"
+    private let squatDepthThreshold: CGFloat = 50.0
+    
+    /// Frame counter for state stability (prevents bouncing)
+    private var stateFrameCounter: Int = 0
+    private let minFramesForStateChange: Int = 5  // Require 5 consecutive frames (0.33s at 15 FPS)
+    
+    /// Pending state waiting for confirmation
+    private var pendingState: SquatState?
+    
+    /// Throttle console logging to make it readable
+    private var lastLogTime: Date = Date()
+    private let logInterval: TimeInterval = 0.5  // Log every 0.5 seconds
+    
+    // MARK: - Adaptive Standing Detection
+    
+    /// Baseline hip-to-ankle distance when standing (calibrated after first rep)
+    private var standingBaseline: CGFloat?
+    
+    /// Fixed threshold for first rep (safe fallback)
+    private let fixedStandingThreshold: CGFloat = 270.0
+    
+    /// Minimum hip-to-ankle drop to validate a proper squat
+    private let minSquatDepthDrop: CGFloat = 100.0  // Must drop by 100px to be a real squat
     
     // MARK: - Analysis Method
     
@@ -29,15 +57,34 @@ final class SquatAnalyzer {
     /// - Parameter poseData: The pose data to analyze
     /// - Returns: FormAnalysisResult containing form analysis and state
     func analyzeSquat(poseData: PoseData) -> FormAnalysisResult {
+        // Select best side using smart side selector
+        guard let filteredData = sideSelector.selectBestSide(from: poseData) else {
+            // No good side available
+            return FormAnalysisResult(
+                isGoodForm: false,
+                primaryIssue: "Unable to analyze: Poor joint detection quality",
+                kneeAngle: nil,
+                squatState: currentState
+            )
+        }
+        
         // Determine current state based on hip and knee positions
-        let squatState = determineState(poseData: poseData)
+        let squatState = determineState(filteredData: filteredData)
+        
+        // Log state changes clearly
+        if squatState != currentState {
+            print("🔄 STATE TRANSITION: \(currentState) → \(squatState)")
+        }
+        
         currentState = squatState
         
         // If in squat position, perform form analysis
         if squatState == .inSquat {
-            return analyzeFormInSquat(poseData: poseData, state: squatState)
+            print("📊 IN SQUAT STATE - Running form analysis...")
+            return analyzeFormInSquat(filteredData: filteredData, state: squatState)
         } else {
             // Not in squat position, return default result
+            print("⏭️  State: \(squatState) - Skipping form analysis (only runs in .inSquat)")
             return FormAnalysisResult(
                 isGoodForm: true,
                 primaryIssue: nil,
@@ -50,128 +97,188 @@ final class SquatAnalyzer {
     // MARK: - Private Methods
     
     /// Determine the current squat state based on hip and knee positions
-    private func determineState(poseData: PoseData) -> SquatState {
-        // Extract key joint positions
-        let leftHipKey = VNRecognizedPointKey(rawValue: "left_hip")
-        let rightHipKey = VNRecognizedPointKey(rawValue: "right_hip")
-        let leftKneeKey = VNRecognizedPointKey(rawValue: "left_knee")
-        let rightKneeKey = VNRecognizedPointKey(rawValue: "right_knee")
+    /// Uses pre-filtered data from side selector
+    private func determineState(filteredData: FilteredPoseData) -> SquatState {
+        let finalHipY = filteredData.hip.y
+        let finalKneeY = filteredData.knee.y
+        let ankleY = filteredData.ankle.y
         
-        guard let leftHip = poseData.jointPositions[leftHipKey],
-              let rightHip = poseData.jointPositions[rightHipKey],
-              let leftKnee = poseData.jointPositions[leftKneeKey],
-              let rightKnee = poseData.jointPositions[rightKneeKey] else {
-            return currentState  // Maintain current state if joints not visible
+        // Use hip-to-ankle distance for depth detection (works great for side view!)
+        let hipToAnkle = ankleY - finalHipY  // Distance from hip to ankle
+        
+        // Determine standing threshold (adaptive after first rep)
+        let standingThreshold: CGFloat
+        if let baseline = standingBaseline {
+            // Use 85% of recorded baseline for standing detection
+            standingThreshold = baseline * 0.85
+        } else {
+            // First rep: use fixed threshold
+            standingThreshold = fixedStandingThreshold
         }
         
-        // Average hip and knee positions
-        let avgHipY = (leftHip.y + rightHip.y) / 2.0
-        let avgKneeY = (leftKnee.y + rightKnee.y) / 2.0
+        // Determine if in squat depth
+        // In a deep squat, hip gets much closer to ankle
+        let isInSquatDepth = hipToAnkle < 150.0
         
-        // Determine if in squat position
-        // Hip drops below knee by threshold
-        let hipDropAmount = avgHipY - avgKneeY
-        let isInSquat = hipDropAmount > squatDepthThreshold
+        // Determine if in standing position (for state transitions)
+        let isInStandingPosition = hipToAnkle > standingThreshold
         
-        // Determine movement direction
-        var newState = currentState
+        // Throttled logging - only every 0.5 seconds for readability
+        let currentTime = Date()
+        let shouldLog = currentTime.timeIntervalSince(lastLogTime) >= logInterval
+        
+        if shouldLog {
+            print("\n═══════════════════════════════════════")
+            print("🔍 SQUAT DEPTH (\(filteredData.side == .left ? "LEFT" : "RIGHT") side, conf: \(String(format: "%.2f", filteredData.averageConfidence))):")
+            print("   Hip Y: \(Int(finalHipY))")
+            print("   Knee Y: \(Int(finalKneeY))")
+            print("   Ankle Y: \(Int(ankleY))")
+            print("   Hip-to-Ankle Distance: \(Int(hipToAnkle))px")
+            if let baseline = standingBaseline {
+                print("   Standing Threshold: \(Int(standingThreshold))px (85% of baseline \(Int(baseline))px)")
+            } else {
+                print("   Standing Threshold: \(Int(standingThreshold))px (fixed - first rep)")
+            }
+            print("   📏 Squat Depth: \(isInSquatDepth ? "✅ DEEP (< 150px)" : "❌ SHALLOW (> 150px)")")
+            print("   📏 Standing Position: \(isInStandingPosition ? "✅ YES (> \(Int(standingThreshold))px)" : "❌ NO")")
+            print("   Current State: \(currentState)")
+            lastLogTime = currentTime
+        }
+        
+        // Determine desired state based on depth and movement
+        var desiredState: SquatState
         
         if let previousY = previousHipY {
-            if isInSquat {
-                newState = .inSquat
-            } else if avgHipY > previousY {
-                // Hip rising (ascending)
-                if currentState == .inSquat {
-                    newState = .ascending
-                }
-            } else if avgHipY < previousY {
-                // Hip descending
-                if currentState == .standing {
-                    newState = .descending
-                }
+            let hipMovement = finalHipY - previousY  // Positive = moving down, Negative = moving up
+            
+            if shouldLog {
+                print("   Hip Movement: \(String(format: "%.1f", hipMovement))px (\(hipMovement > 0 ? "↓ DOWN" : hipMovement < 0 ? "↑ UP" : "—"))")
             }
             
-            // Transition from ascending to standing
-            if currentState == .ascending && !isInSquat && avgHipY <= previousY {
-                newState = .standing
+            // Determine desired state using improved logic
+            if isInSquatDepth {
+                // Deep enough for squat
+                desiredState = .inSquat
+                if shouldLog {
+                    print("   ✅ SQUAT DEPTH REACHED - Desired State: .inSquat")
+                }
+            } else if isInStandingPosition {
+                // Back to standing position (adaptive threshold)
+                desiredState = .standing
+                if shouldLog {
+                    print("   🧍 Back to standing position - Desired State: .standing")
+                }
+            } else {
+                // In between - use movement direction
+                if hipMovement > 1.0 {
+                    desiredState = .descending
+                    if shouldLog {
+                        print("   ⬇️  Moving down - Desired State: .descending")
+                    }
+                } else if hipMovement < -1.0 {
+                    desiredState = .ascending
+                    if shouldLog {
+                        print("   ⬆️  Moving up - Desired State: .ascending")
+                    }
+                } else {
+                    // Minimal movement - maintain current state
+                    desiredState = currentState
+                }
+            }
+        } else {
+            desiredState = isInSquatDepth ? .inSquat : .standing
+            print("   🆕 FIRST FRAME - Desired State: \(desiredState)")
+        }
+        
+        // STATE STABILITY: Require state to be consistent for multiple frames before changing
+        if desiredState == pendingState {
+            stateFrameCounter += 1
+            if shouldLog {
+                print("   ⏳ Pending state '\(desiredState)' for \(stateFrameCounter)/\(minFramesForStateChange) frames")
+            }
+        } else {
+            // Reset counter if desired state changed
+            pendingState = desiredState
+            stateFrameCounter = 1
+            if shouldLog {
+                print("   🔄 New pending state: \(desiredState) (needs \(minFramesForStateChange) frames)")
             }
         }
         
-        previousHipY = avgHipY
+        // Only change state if we have enough consecutive frames
+        var newState = currentState
+        if stateFrameCounter >= minFramesForStateChange {
+            newState = desiredState
+            stateFrameCounter = 0
+            pendingState = nil
+            
+            if newState != currentState {
+                print("   ✨✨✨ STATE CONFIRMED & CHANGED: \(currentState) → \(newState) ✨✨✨")
+                
+                // ADAPTIVE CALIBRATION: Record baseline when returning to standing after a proper squat
+                if newState == .standing && currentState == .ascending {
+                    // User completed a rep - calibrate baseline if this was a proper squat
+                    if standingBaseline == nil {
+                        // First rep completed - record baseline
+                        standingBaseline = hipToAnkle
+                        print("📏 BASELINE CALIBRATED: \(Int(hipToAnkle))px (first rep complete)")
+                        print("   Future standing threshold: \(Int(hipToAnkle * 0.85))px (85% of baseline)")
+                    }
+                }
+            }
+        }
+        
+        previousHipY = finalHipY
+        
+        if shouldLog {
+            print("   Final State: \(newState)")
+            print("═══════════════════════════════════════\n")
+        }
         
         return newState
     }
     
     /// Analyze form while in squat position
-    private func analyzeFormInSquat(poseData: PoseData, state: SquatState) -> FormAnalysisResult {
-        // Extract required joints with error handling
-        let leftHipKey = VNRecognizedPointKey(rawValue: "left_hip")
-        let rightHipKey = VNRecognizedPointKey(rawValue: "right_hip")
-        let leftKneeKey = VNRecognizedPointKey(rawValue: "left_knee")
-        let rightKneeKey = VNRecognizedPointKey(rawValue: "right_knee")
-        let leftAnkleKey = VNRecognizedPointKey(rawValue: "left_ankle")
-        let rightAnkleKey = VNRecognizedPointKey(rawValue: "right_ankle")
-        let leftShoulderKey = VNRecognizedPointKey(rawValue: "left_shoulder")
-        let rightShoulderKey = VNRecognizedPointKey(rawValue: "right_shoulder")
+    /// Uses pre-filtered data with best quality side
+    private func analyzeFormInSquat(filteredData: FilteredPoseData, state: SquatState) -> FormAnalysisResult {
+        let finalShoulder = filteredData.shoulder
+        let finalHip = filteredData.hip
+        let finalKnee = filteredData.knee
+        let finalAnkle = filteredData.ankle
         
-        guard let leftHip = poseData.jointPositions[leftHipKey],
-              let rightHip = poseData.jointPositions[rightHipKey],
-              let leftKnee = poseData.jointPositions[leftKneeKey],
-              let rightKnee = poseData.jointPositions[rightKneeKey],
-              let leftAnkle = poseData.jointPositions[leftAnkleKey],
-              let rightAnkle = poseData.jointPositions[rightAnkleKey],
-              let leftShoulder = poseData.jointPositions[leftShoulderKey],
-              let rightShoulder = poseData.jointPositions[rightShoulderKey] else {
-            // Missing required joints
-            return FormAnalysisResult(
-                isGoodForm: false,
-                primaryIssue: "Unable to analyze: Missing required joints",
-                kneeAngle: nil,
-                squatState: state
-            )
-        }
+        print("📐 Analyzing form using \(filteredData.side == .left ? "LEFT" : "RIGHT") side (conf: \(String(format: "%.2f", filteredData.averageConfidence)))")
         
-        // Calculate knee angle (average of left and right)
-        let leftKneeAngle = AngleCalculator.calculateAngle(
-            pointA: leftHip,
-            vertex: leftKnee,
-            pointC: leftAnkle
+        // Calculate knee angle using the visible side
+        let kneeAngle = AngleCalculator.calculateAngle(
+            pointA: finalHip,
+            vertex: finalKnee,
+            pointC: finalAnkle
         )
         
-        let rightKneeAngle = AngleCalculator.calculateAngle(
-            pointA: rightHip,
-            vertex: rightKnee,
-            pointC: rightAnkle
-        )
+        print("   Knee Angle: \(String(format: "%.1f°", kneeAngle))")
         
-        let avgKneeAngle = (leftKneeAngle + rightKneeAngle) / 2.0
-        
-        // Check knee angle (priority 1)
+        // Check knee angle (priority 1) - scientifically correct range for full squat
         let isGoodKneeAngle = AngleCalculator.isAngleInRange(
-            avgKneeAngle,
+            kneeAngle,
             min: FormCheckConstants.GOOD_KNEE_ANGLE_MIN,
             max: FormCheckConstants.GOOD_KNEE_ANGLE_MAX
         )
         
+        print("   Knee Angle Good: \(isGoodKneeAngle) (range: \(FormCheckConstants.GOOD_KNEE_ANGLE_MIN)-\(FormCheckConstants.GOOD_KNEE_ANGLE_MAX)°)")
+        
         // Check knee forward position (priority 2)
-        let leftKneeForward = leftKnee.x - leftAnkle.x
-        let rightKneeForward = rightKnee.x - rightAnkle.x
-        let avgKneeForward = (abs(leftKneeForward) + abs(rightKneeForward)) / 2.0
-        let isGoodKneePosition = avgKneeForward <= FormCheckConstants.KNEE_FORWARD_THRESHOLD
+        // Knee should not go too far past ankle
+        let kneeForward = abs(finalKnee.x - finalAnkle.x)
+        let isGoodKneePosition = kneeForward <= FormCheckConstants.KNEE_FORWARD_THRESHOLD
+        
+        print("   Knee Forward: \(Int(kneeForward))px (threshold: \(Int(FormCheckConstants.KNEE_FORWARD_THRESHOLD))px), Good: \(isGoodKneePosition)")
         
         // Check back angle (priority 3)
-        let avgShoulder = CGPoint(
-            x: (leftShoulder.x + rightShoulder.x) / 2.0,
-            y: (leftShoulder.y + rightShoulder.y) / 2.0
-        )
-        
-        let avgHip = CGPoint(
-            x: (leftHip.x + rightHip.x) / 2.0,
-            y: (leftHip.y + rightHip.y) / 2.0
-        )
-        
-        let backAngle = AngleCalculator.angleFromVertical(point1: avgShoulder, point2: avgHip)
+        // Back should not lean too far forward
+        let backAngle = AngleCalculator.angleFromVertical(point1: finalShoulder, point2: finalHip)
         let isGoodBackAngle = backAngle <= FormCheckConstants.BACK_ANGLE_THRESHOLD
+        
+        print("   Back Angle: \(String(format: "%.1f°", backAngle)) from vertical (threshold: \(FormCheckConstants.BACK_ANGLE_THRESHOLD)°), Good: \(isGoodBackAngle)")
         
         // Determine if form is good and identify primary issue
         let isGoodForm = isGoodKneeAngle && isGoodKneePosition && isGoodBackAngle
@@ -181,20 +288,24 @@ final class SquatAnalyzer {
         if !isGoodForm {
             // Determine primary issue based on priority
             if !isGoodKneeAngle {
-                primaryIssue = String(format: "Knee angle too %@ (%.0f°)", 
-                                     avgKneeAngle < FormCheckConstants.GOOD_KNEE_ANGLE_MIN ? "small" : "large",
-                                     avgKneeAngle)
+                if kneeAngle < FormCheckConstants.GOOD_KNEE_ANGLE_MIN {
+                    primaryIssue = String(format: "Knee angle too small (%.0f°) - going too deep", kneeAngle)
+                } else {
+                    primaryIssue = String(format: "Not deep enough (%.0f° knee angle)", kneeAngle)
+                }
             } else if !isGoodKneePosition {
                 primaryIssue = "Knees too far forward"
             } else if !isGoodBackAngle {
-                primaryIssue = String(format: "Back angle too large (%.0f°)", backAngle)
+                primaryIssue = String(format: "Keep back more upright (%.0f° lean)", backAngle)
             }
         }
+        
+        print("   Overall Form: \(isGoodForm ? "✅ GOOD" : "❌ BAD") - \(primaryIssue ?? "None")")
         
         return FormAnalysisResult(
             isGoodForm: isGoodForm,
             primaryIssue: primaryIssue,
-            kneeAngle: avgKneeAngle,
+            kneeAngle: kneeAngle,
             squatState: state
         )
     }
@@ -203,5 +314,22 @@ final class SquatAnalyzer {
     func reset() {
         currentState = .standing
         previousHipY = nil
+        stateFrameCounter = 0
+        pendingState = nil
+        lastLogTime = Date()
+        sideSelector.reset()
+        standingBaseline = nil  // Reset adaptive baseline for new session
+        print("🔄 Squat analyzer reset (baseline will recalibrate on first rep)")
+    }
+    
+    // MARK: - Helper Methods
+    
+    /// Log message only if enough time has passed (for readability)
+    private func logIfNeeded(_ message: String) {
+        let currentTime = Date()
+        if currentTime.timeIntervalSince(lastLogTime) >= logInterval {
+            print(message)
+            lastLogTime = currentTime
+        }
     }
 }
