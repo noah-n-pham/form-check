@@ -186,6 +186,17 @@ final class CameraPoseManager: NSObject {
         captureSession.addOutput(videoOutput)
         self.videoOutput = videoOutput
         
+        // Set video orientation to match device orientation
+        if let connection = videoOutput.connection(with: .video) {
+            if connection.isVideoOrientationSupported {
+                connection.videoOrientation = .portrait
+            }
+            // Mirror the video for front camera (more natural for user)
+            if connection.isVideoMirroringSupported {
+                connection.isVideoMirrored = true
+            }
+        }
+        
         captureSession.commitConfiguration()
         
         // Setup preview layer
@@ -222,9 +233,11 @@ final class CameraPoseManager: NSObject {
     // MARK: - Pose Detection
     
     private func detectPose(in pixelBuffer: CVPixelBuffer) {
+        // Use .left orientation for front camera in portrait mode with mirrored preview
+        // This tells Vision the correct orientation of the captured image
         let handler = VNImageRequestHandler(
             cvPixelBuffer: pixelBuffer,
-            orientation: .up,
+            orientation: .left,
             options: [:]
         )
         
@@ -289,21 +302,15 @@ final class CameraPoseManager: NSObject {
         }
         
         // Vision coordinates: (0,0) is bottom-left, (1,1) is top-right
-        // Need to convert to UIKit coordinates: (0,0) is top-left
+        // With .right orientation, Vision already accounts for camera rotation
+        // Just pass the coordinates directly - layerPointConverted handles the rest
+        let captureDevicePoint = visionPoint
         
-        // Flip Y coordinate (Vision has origin at bottom-left)
-        let flippedY = 1.0 - visionPoint.y
+        // Use AVCaptureVideoPreviewLayer's built-in conversion
+        // This properly handles video gravity, orientation, and aspect ratio
+        let screenPoint = previewLayer.layerPointConverted(fromCaptureDevicePoint: captureDevicePoint)
         
-        // Get preview layer bounds
-        let layerWidth = previewLayer.bounds.width
-        let layerHeight = previewLayer.bounds.height
-        
-        // Convert to screen coordinates
-        // Vision coordinates are normalized (0-1), so multiply by screen dimensions
-        let screenX = visionPoint.x * layerWidth
-        let screenY = flippedY * layerHeight
-        
-        return CGPoint(x: screenX, y: screenY)
+        return screenPoint
     }
 }
 

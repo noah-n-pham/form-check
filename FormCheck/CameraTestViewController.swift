@@ -2,45 +2,69 @@
 //  CameraTestViewController.swift
 //  FormCheck
 //
-//  Created for GatorHack
-//  Visual testing interface for camera and pose detection system
+//  Created for GatorHack - Visual Testing Interface
 //
 
 import UIKit
 import AVFoundation
 import Vision
 
-/// Test view controller to visualize pose detection with colored keypoint overlays
+/// Visual testing interface for camera and pose detection system
+/// Shows colored keypoint overlays and debug information
 final class CameraTestViewController: UIViewController {
     
     // MARK: - Camera Manager
     
     private let cameraPoseManager = CameraPoseManager()
     
-    // MARK: - Debug Overlay
-    
-    private let debugLabel: UILabel = {
-        let label = UILabel()
-        label.numberOfLines = 0
-        label.textAlignment = .left
-        label.font = .monospacedSystemFont(ofSize: 14, weight: .medium)
-        label.textColor = .white
-        label.backgroundColor = UIColor.black.withAlphaComponent(0.6)
-        label.layer.cornerRadius = 8
-        label.clipsToBounds = true
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
-    
     // MARK: - Keypoint Layers (Reusable)
     
     private var keypointLayers: [VNHumanBodyPoseObservation.JointName: CAShapeLayer] = [:]
     
+    // MARK: - Debug UI
+    
+    private let debugLabel: UILabel = {
+        let label = UILabel()
+        label.numberOfLines = 0
+        label.textColor = .white
+        label.font = .monospacedSystemFont(ofSize: 13, weight: .medium)
+        label.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        label.textAlignment = .left
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.layer.cornerRadius = 8
+        label.layer.masksToBounds = true
+        return label
+    }()
+    
+    private let backButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle("← Back", for: .normal)
+        button.setTitleColor(.white, for: .normal)
+        button.titleLabel?.font = .boldSystemFont(ofSize: 18)
+        button.backgroundColor = UIColor.black.withAlphaComponent(0.6)
+        button.layer.cornerRadius = 8
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
+    }()
+    
     // MARK: - FPS Tracking
     
     private var lastUpdateTime: CFTimeInterval = 0
-    private var fpsValues: [Double] = []
-    private let maxFpsValues = 30 // Track last 30 frames for averaging
+    private var frameCount: Int = 0
+    private var currentFPS: Double = 0
+    
+    // MARK: - Joint Colors
+    
+    private let jointColors: [VNHumanBodyPoseObservation.JointName: UIColor] = [
+        .leftShoulder: .systemBlue,
+        .rightShoulder: .systemBlue,
+        .leftHip: .systemGreen,
+        .rightHip: .systemGreen,
+        .leftKnee: .systemRed,
+        .rightKnee: .systemRed,
+        .leftAnkle: .systemYellow,
+        .rightAnkle: .systemYellow
+    ]
     
     // MARK: - Lifecycle
     
@@ -49,25 +73,8 @@ final class CameraTestViewController: UIViewController {
         view.backgroundColor = .black
         title = "Camera Test"
         
-        // Setup back button
-        navigationItem.leftBarButtonItem = UIBarButtonItem(
-            title: "Back",
-            style: .plain,
-            target: self,
-            action: #selector(backButtonTapped)
-        )
-        
-        // Set up camera manager delegate
-        cameraPoseManager.delegate = self
-        
-        // Setup camera
+        setupUI()
         setupCamera()
-        
-        // Setup debug overlay
-        setupDebugOverlay()
-        
-        // Create reusable keypoint layers
-        createKeypointLayers()
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -88,7 +95,39 @@ final class CameraTestViewController: UIViewController {
     
     // MARK: - Setup
     
+    private func setupUI() {
+        // Add debug label
+        view.addSubview(debugLabel)
+        NSLayoutConstraint.activate([
+            debugLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
+            debugLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            debugLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
+        ])
+        
+        // Add back button
+        view.addSubview(backButton)
+        backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
+        NSLayoutConstraint.activate([
+            backButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
+            backButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            backButton.widthAnchor.constraint(equalToConstant: 120),
+            backButton.heightAnchor.constraint(equalToConstant: 44)
+        ])
+        
+        // Initialize keypoint layers for all joints
+        for (jointName, color) in jointColors {
+            let layer = createKeypointLayer(color: color)
+            keypointLayers[jointName] = layer
+            view.layer.addSublayer(layer)
+        }
+        
+        // Initial debug text
+        updateDebugLabel(jointCount: 0, avgConfidence: 0)
+    }
+    
     private func setupCamera() {
+        cameraPoseManager.delegate = self
+        
         cameraPoseManager.setupCamera(in: view) { [weak self] success, errorMessage in
             if success {
                 print("✅ Camera test setup successful")
@@ -99,164 +138,85 @@ final class CameraTestViewController: UIViewController {
         }
     }
     
-    private func setupDebugOverlay() {
-        view.addSubview(debugLabel)
+    // MARK: - Keypoint Layer Creation
+    
+    private func createKeypointLayer(color: UIColor) -> CAShapeLayer {
+        let layer = CAShapeLayer()
+        let diameter: CGFloat = 10.0
+        let radius = diameter / 2.0
         
-        NSLayoutConstraint.activate([
-            debugLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
-            debugLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            debugLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
-        ])
+        // Create circle path
+        let path = UIBezierPath(
+            arcCenter: .zero,
+            radius: radius,
+            startAngle: 0,
+            endAngle: 2 * .pi,
+            clockwise: true
+        )
         
-        debugLabel.text = "Waiting for pose detection..."
+        layer.path = path.cgPath
+        layer.fillColor = color.cgColor
+        layer.strokeColor = UIColor.white.cgColor
+        layer.lineWidth = 2.0
+        
+        // Initially hidden
+        layer.isHidden = true
+        
+        return layer
     }
     
-    private func createKeypointLayers() {
-        // Create reusable CAShapeLayers for each joint
-        let joints: [VNHumanBodyPoseObservation.JointName] = [
-            .leftShoulder, .rightShoulder,
-            .leftHip, .rightHip,
-            .leftKnee, .rightKnee,
-            .leftAnkle, .rightAnkle
-        ]
+    // MARK: - Keypoint Updates
+    
+    private func updateKeypoints(with poseData: PoseData) {
+        // Hide all layers first
+        for layer in keypointLayers.values {
+            layer.isHidden = true
+        }
         
-        for joint in joints {
-            let layer = CAShapeLayer()
-            layer.fillColor = colorForJoint(joint).cgColor
-            layer.isHidden = true // Hidden until we have data
-            view.layer.addSublayer(layer)
-            keypointLayers[joint] = layer
+        // Update positions for detected joints
+        for (jointName, position) in poseData.jointPositions {
+            guard let layer = keypointLayers[jointName] else { continue }
+            
+            // Update layer position
+            layer.position = position
+            layer.isHidden = false
         }
     }
     
-    // MARK: - Color Mapping
+    // MARK: - Debug Info Updates
     
-    private func colorForJoint(_ joint: VNHumanBodyPoseObservation.JointName) -> UIColor {
-        switch joint {
-        case .leftShoulder, .rightShoulder:
-            return .systemBlue // Blue for shoulders
-        case .leftHip, .rightHip:
-            return .systemGreen // Green for hips
-        case .leftKnee, .rightKnee:
-            return .systemRed // Red for knees
-        case .leftAnkle, .rightAnkle:
-            return .systemYellow // Yellow for ankles
-        default:
-            return .white
-        }
-    }
-    
-    // MARK: - Keypoint Visualization
-    
-    private func updateKeypointVisuals(_ poseData: PoseData) {
-        // Update each keypoint layer
-        for (joint, layer) in keypointLayers {
-            if let position = poseData.jointPositions[joint] {
-                // Update position and make visible
-                let diameter: CGFloat = 10.0
-                let radius = diameter / 2.0
-                let rect = CGRect(
-                    x: position.x - radius,
-                    y: position.y - radius,
-                    width: diameter,
-                    height: diameter
-                )
-                layer.path = UIBezierPath(ovalIn: rect).cgPath
-                layer.isHidden = false
-            } else {
-                // Hide if joint not detected
-                layer.isHidden = true
-            }
-        }
-    }
-    
-    // MARK: - Debug Info
-    
-    private func updateDebugInfo(_ poseData: PoseData) {
-        // Calculate FPS
-        let currentTime = CACurrentMediaTime()
-        if lastUpdateTime > 0 {
-            let timeDiff = currentTime - lastUpdateTime
-            let instantFps = 1.0 / timeDiff
-            fpsValues.append(instantFps)
-            if fpsValues.count > maxFpsValues {
-                fpsValues.removeFirst()
-            }
-        }
-        lastUpdateTime = currentTime
-        
-        // Calculate average FPS
-        let avgFps = fpsValues.isEmpty ? 0 : fpsValues.reduce(0, +) / Double(fpsValues.count)
-        
-        // Calculate average confidence
-        let confidenceSum = poseData.confidences.values.reduce(0, +)
-        let avgConfidence = poseData.confidences.isEmpty ? 0 : confidenceSum / Float(poseData.confidences.count)
-        
-        // Get joint count
-        let jointCount = poseData.jointPositions.count
-        
-        // Build debug text
+    private func updateDebugLabel(jointCount: Int, avgConfidence: Float) {
         let debugText = """
-        📊 POSE DETECTION TEST
-        
-        Joints Detected: \(jointCount) / 8
-        Avg Confidence: \(String(format: "%.2f", avgConfidence))
-        FPS: \(String(format: "%.1f", avgFps))
-        
-        Detected Joints:
-        \(formatDetectedJoints(poseData))
+          🎥 CAMERA TEST MODE
+          
+          Joints Detected: \(jointCount) / 8
+          Avg Confidence: \(String(format: "%.2f", avgConfidence))
+          FPS: \(String(format: "%.1f", currentFPS))
+          
+          🔵 Blue = Shoulders
+          🟢 Green = Hips
+          🔴 Red = Knees
+          🟡 Yellow = Ankles
         """
         
         debugLabel.text = debugText
-        
-        // Add padding
-        debugLabel.textContainerInset = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
     }
     
-    private func formatDetectedJoints(_ poseData: PoseData) -> String {
-        let jointNames: [VNHumanBodyPoseObservation.JointName] = [
-            .leftShoulder, .rightShoulder,
-            .leftHip, .rightHip,
-            .leftKnee, .rightKnee,
-            .leftAnkle, .rightAnkle
-        ]
+    private func calculateFPS() {
+        let currentTime = CACurrentMediaTime()
         
-        var lines: [String] = []
-        for joint in jointNames {
-            let name = friendlyJointName(joint)
-            let emoji = emojiForJoint(joint)
+        if lastUpdateTime > 0 {
+            frameCount += 1
+            let elapsed = currentTime - lastUpdateTime
             
-            if let confidence = poseData.confidences[joint] {
-                lines.append("  \(emoji) \(name): \(String(format: "%.2f", confidence))")
-            } else {
-                lines.append("  ❌ \(name): not detected")
+            // Update FPS every second
+            if elapsed >= 1.0 {
+                currentFPS = Double(frameCount) / elapsed
+                frameCount = 0
+                lastUpdateTime = currentTime
             }
-        }
-        
-        return lines.joined(separator: "\n")
-    }
-    
-    private func friendlyJointName(_ joint: VNHumanBodyPoseObservation.JointName) -> String {
-        switch joint {
-        case .leftShoulder: return "L Shoulder"
-        case .rightShoulder: return "R Shoulder"
-        case .leftHip: return "L Hip"
-        case .rightHip: return "R Hip"
-        case .leftKnee: return "L Knee"
-        case .rightKnee: return "R Knee"
-        case .leftAnkle: return "L Ankle"
-        case .rightAnkle: return "R Ankle"
-        default: return "Unknown"
-        }
-    }
-    
-    private func emojiForJoint(_ joint: VNHumanBodyPoseObservation.JointName) -> String {
-        switch joint {
-        case .leftShoulder, .rightShoulder: return "🔵"
-        case .leftHip, .rightHip: return "🟢"
-        case .leftKnee, .rightKnee: return "🔴"
-        case .leftAnkle, .rightAnkle: return "🟡"
-        default: return "⚪️"
+        } else {
+            lastUpdateTime = currentTime
         }
     }
     
@@ -287,38 +247,26 @@ final class CameraTestViewController: UIViewController {
 
 extension CameraTestViewController: PoseDataDelegate {
     func didUpdatePoseData(_ data: PoseData) {
-        // Update keypoint visuals
-        updateKeypointVisuals(data)
+        // Calculate FPS
+        calculateFPS()
+        
+        // Update keypoint visualizations
+        updateKeypoints(with: data)
+        
+        // Calculate average confidence
+        let avgConfidence: Float
+        if !data.confidences.isEmpty {
+            let sum = data.confidences.values.reduce(0, +)
+            avgConfidence = sum / Float(data.confidences.count)
+        } else {
+            avgConfidence = 0
+        }
         
         // Update debug info
-        updateDebugInfo(data)
-    }
-}
-
-// MARK: - UILabel Extension for Text Insets
-
-private extension UILabel {
-    var textContainerInset: UIEdgeInsets {
-        get {
-            return .zero
-        }
-        set {
-            // Workaround: Add padding by adjusting text with attributed string
-            guard let text = self.text else { return }
-            let paragraphStyle = NSMutableParagraphStyle()
-            paragraphStyle.alignment = self.textAlignment
-            paragraphStyle.lineBreakMode = self.lineBreakMode
-            
-            let attributedString = NSAttributedString(
-                string: "\n\(text)\n",
-                attributes: [
-                    .font: self.font ?? .systemFont(ofSize: 14),
-                    .foregroundColor: self.textColor ?? .white,
-                    .paragraphStyle: paragraphStyle
-                ]
-            )
-            self.attributedText = attributedString
-        }
+        updateDebugLabel(jointCount: data.jointPositions.count, avgConfidence: avgConfidence)
+        
+        // Debug logging
+        print("🦴 Test Mode: Detected \(data.jointPositions.count) joints | FPS: \(String(format: "%.1f", currentFPS))")
     }
 }
 
