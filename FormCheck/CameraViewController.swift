@@ -110,6 +110,13 @@ final class CameraViewController: UIViewController {
         view.backgroundColor = .black
         title = "Squat Analysis"
         
+        // Configure navigation bar with back button
+        navigationController?.navigationBar.isHidden = false
+        navigationController?.navigationBar.prefersLargeTitles = false
+        navigationController?.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
+        navigationController?.navigationBar.barStyle = .black
+        navigationController?.navigationBar.tintColor = .white
+        
         // 1. Initialize CameraPoseManager with view (already done in property)
         
         // 2. Set self as PoseDataDelegate
