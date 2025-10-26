@@ -7,30 +7,12 @@ final class CameraViewController: UIViewController {
     private var frontCamera: AVCaptureDevice?
     private var frontCameraInput: AVCaptureDeviceInput?
     private var videoOutput: AVCaptureVideoDataOutput?
-    private let placeholderLabel: UILabel = {
-        let lbl = UILabel()
-        lbl.text = "Camera will appear here"
-        lbl.font = .systemFont(ofSize: 20, weight: .semibold)
-        lbl.textAlignment = .center
-        lbl.numberOfLines = 0
-        lbl.translatesAutoresizingMaskIntoConstraints = false
-        return lbl
-    }()
+    private var previewLayer: AVCaptureVideoPreviewLayer?
 
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
         title = "Camera"
-
-        // Placeholder UI
-        view.addSubview(placeholderLabel)
-        NSLayoutConstraint.activate([
-            placeholderLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            placeholderLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            placeholderLabel.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
-            placeholderLabel.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -24)
-        ])
-
         navigationItem.backButtonTitle = "Back"
         
         setupCamera()
@@ -44,6 +26,11 @@ final class CameraViewController: UIViewController {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         stopCaptureSession()
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        previewLayer?.frame = view.bounds
     }
     
     // MARK: - Camera Setup
@@ -126,6 +113,18 @@ final class CameraViewController: UIViewController {
         }
         
         captureSession.commitConfiguration()
+        
+        // Setup preview layer after session configuration
+        setupPreviewLayer()
+    }
+    
+    private func setupPreviewLayer() {
+        previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
+        previewLayer?.videoGravity = .resizeAspectFill
+        previewLayer?.frame = view.bounds
+        
+        guard let previewLayer = previewLayer else { return }
+        view.layer.addSublayer(previewLayer)
     }
     
     // MARK: - Session Control
