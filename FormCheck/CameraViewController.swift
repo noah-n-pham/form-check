@@ -80,17 +80,31 @@ final class CameraViewController: UIViewController {
         return label
     }()
     
+    private let repCountContainerView: UIView = {
+        let view = UIView()
+        view.backgroundColor = UIColor.white.withAlphaComponent(0.15)
+        view.layer.cornerRadius = 30
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+    
     private let repCountLabel: UILabel = {
         let label = UILabel()
-        label.font = .systemFont(ofSize: 20, weight: .semibold)
+        label.font = .monospacedDigitSystemFont(ofSize: 28, weight: .bold)
         label.textColor = .white
-        label.textAlignment = .right
-        label.text = "REPS: 0"
+        label.textAlignment = .center
+        label.text = "0"
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.layer.shadowColor = UIColor.black.cgColor
-        label.layer.shadowOffset = CGSize(width: 0, height: 1)
-        label.layer.shadowOpacity = 0.6
-        label.layer.shadowRadius = 2
+        return label
+    }()
+    
+    private let repsTitleLabel: UILabel = {
+        let label = UILabel()
+        label.text = "REPS"
+        label.font = .systemFont(ofSize: 11, weight: .semibold)
+        label.textColor = UIColor.white.withAlphaComponent(0.7)
+        label.textAlignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
     
@@ -98,6 +112,9 @@ final class CameraViewController: UIViewController {
     
     /// Previous squat state for detecting state changes
     private var previousState: SquatState?
+    
+    /// Previous rep count for detecting rep completion
+    private var previousRepCount: Int = 0
     
     /// Throttle console logging
     private var lastSummaryLogTime: Date = Date()
@@ -178,11 +195,25 @@ final class CameraViewController: UIViewController {
         ])
         coachingCuesLabel.alpha = 0  // Hidden until rep completes
         
-        // Add rep count label (top right)
-        view.addSubview(repCountLabel)
+        // Add rep count container (top right)
+        view.addSubview(repCountContainerView)
+        repCountContainerView.addSubview(repCountLabel)
+        repCountContainerView.addSubview(repsTitleLabel)
+        
         NSLayoutConstraint.activate([
-            repCountLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
-            repCountLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20)
+            // Container
+            repCountContainerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
+            repCountContainerView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            repCountContainerView.widthAnchor.constraint(equalToConstant: 80),
+            repCountContainerView.heightAnchor.constraint(equalToConstant: 60),
+            
+            // Rep count number
+            repCountLabel.centerXAnchor.constraint(equalTo: repCountContainerView.centerXAnchor),
+            repCountLabel.topAnchor.constraint(equalTo: repCountContainerView.topAnchor, constant: 8),
+            
+            // "REPS" title
+            repsTitleLabel.centerXAnchor.constraint(equalTo: repCountContainerView.centerXAnchor),
+            repsTitleLabel.topAnchor.constraint(equalTo: repCountLabel.bottomAnchor, constant: 2)
         ])
     }
     
@@ -334,8 +365,55 @@ extension CameraViewController: PoseDataDelegate {
     // MARK: - UI Updates
     
     private func updateUI(formResult: FormAnalysisResult, repData: RepCountData) {
-        // Update rep count
-        repCountLabel.text = "REPS: \(repData.totalReps)"
+        // Check if rep count changed
+        if repData.totalReps != previousRepCount {
+            animateRepCountUpdate(newCount: repData.totalReps, quality: repData.lastRepQuality)
+            previousRepCount = repData.totalReps
+        }
+    }
+    
+    private func animateRepCountUpdate(newCount: Int, quality: Int?) {
+        // Update the text
+        repCountLabel.text = "\(newCount)"
+        
+        // Determine color based on quality
+        var pulseColor: UIColor = .systemBlue
+        if let quality = quality {
+            if quality >= 85 {
+                pulseColor = .systemGreen
+            } else if quality >= 70 {
+                pulseColor = .systemYellow
+            } else {
+                pulseColor = .systemRed
+            }
+        }
+        
+        // Generate haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+        
+        // Spring animation for the container
+        repCountContainerView.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
+        
+        // Flash color effect
+        let originalBackgroundColor = repCountContainerView.backgroundColor
+        repCountContainerView.backgroundColor = pulseColor.withAlphaComponent(0.4)
+        
+        // Animate with spring effect
+        UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 0.4, initialSpringVelocity: 0.8, options: [.curveEaseOut]) {
+            self.repCountContainerView.transform = .identity
+        }
+        
+        // Fade back to original background color
+        UIView.animate(withDuration: 0.6, delay: 0.1, options: [.curveEaseInOut]) {
+            self.repCountContainerView.backgroundColor = originalBackgroundColor
+        }
+        
+        // Scale animation for the label itself
+        repCountLabel.transform = CGAffineTransform(scaleX: 1.3, y: 1.3)
+        UIView.animate(withDuration: 0.3, delay: 0.05, options: [.curveEaseOut]) {
+            self.repCountLabel.transform = .identity
+        }
     }
     
     private func showRepCompletionFeedback(repData: RepCountData) {
