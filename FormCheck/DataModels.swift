@@ -107,16 +107,40 @@ struct SessionSummary {
     /// Total number of reps completed in session
     let totalReps: Int
     
+    /// Average form quality score across all reps
+    let averageScore: Int
+    
+    /// Highest quality score achieved
+    let highestScore: Int
+    
+    /// Lowest quality score achieved
+    let lowestScore: Int
+    
+    /// All rep quality scores in order
+    let allRepScores: [Int]
+    
     /// Percentage of reps with good form (0-100)
     let goodFormPercentage: Double
     
-    /// Most frequently occurring form issue, nil if no issues
+    /// Most frequently occurring form issue
     let mostCommonIssue: String?
     
-    init(totalReps: Int, goodFormPercentage: Double, mostCommonIssue: String?) {
+    /// Number of reps where the most common issue appeared
+    let issueCount: Int
+    
+    /// Performance trend: positive means improving, negative means declining
+    let performanceTrend: Double
+    
+    init(totalReps: Int, averageScore: Int, highestScore: Int, lowestScore: Int, allRepScores: [Int], goodFormPercentage: Double, mostCommonIssue: String?, issueCount: Int, performanceTrend: Double) {
         self.totalReps = totalReps
+        self.averageScore = averageScore
+        self.highestScore = highestScore
+        self.lowestScore = lowestScore
+        self.allRepScores = allRepScores
         self.goodFormPercentage = goodFormPercentage
         self.mostCommonIssue = mostCommonIssue
+        self.issueCount = issueCount
+        self.performanceTrend = performanceTrend
     }
 }
 

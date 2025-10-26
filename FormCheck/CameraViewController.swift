@@ -108,6 +108,21 @@ final class CameraViewController: UIViewController {
         return label
     }()
     
+    private let endSetButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle("End Set", for: .normal)
+        button.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+        button.backgroundColor = UIColor.systemRed.withAlphaComponent(0.8)
+        button.setTitleColor(.white, for: .normal)
+        button.layer.cornerRadius = 12
+        button.layer.shadowColor = UIColor.black.cgColor
+        button.layer.shadowOffset = CGSize(width: 0, height: 2)
+        button.layer.shadowOpacity = 0.4
+        button.layer.shadowRadius = 4
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
+    }()
+    
     // MARK: - State Tracking
     
     /// Previous squat state for detecting state changes
@@ -115,6 +130,15 @@ final class CameraViewController: UIViewController {
     
     /// Previous rep count for detecting rep completion
     private var previousRepCount: Int = 0
+    
+    /// Session tracking: all rep quality scores
+    private var sessionRepScores: [Int] = []
+    
+    /// Session tracking: all coaching cues from each rep
+    private var sessionCoachingCues: [[String]] = []
+    
+    /// Session start time
+    private var sessionStartTime: Date?
     
     /// Throttle console logging
     private var lastSummaryLogTime: Date = Date()
@@ -215,6 +239,17 @@ final class CameraViewController: UIViewController {
             repsTitleLabel.centerXAnchor.constraint(equalTo: repCountContainerView.centerXAnchor),
             repsTitleLabel.topAnchor.constraint(equalTo: repCountLabel.bottomAnchor, constant: 2)
         ])
+        
+        // Add End Set button (bottom center)
+        view.addSubview(endSetButton)
+        endSetButton.addTarget(self, action: #selector(endSetButtonTapped), for: .touchUpInside)
+        
+        NSLayoutConstraint.activate([
+            endSetButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+            endSetButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            endSetButton.widthAnchor.constraint(equalToConstant: 140),
+            endSetButton.heightAnchor.constraint(equalToConstant: 50)
+        ])
     }
     
     /// Sets up the camera capture session and preview layer
@@ -247,6 +282,10 @@ final class CameraViewController: UIViewController {
     
     /// Starts the analysis session (camera capture + pose detection + form analysis)
     func startAnalysis() {
+        sessionStartTime = Date()
+        sessionRepScores = []
+        sessionCoachingCues = []
+        previousRepCount = 0
         cameraPoseManager.startCapture()
         print("▶️ Analysis started")
     }
@@ -255,8 +294,84 @@ final class CameraViewController: UIViewController {
     func stopAnalysis() {
         cameraPoseManager.stopCapture()
         print("⏹️ Analysis stopped")
+    }
+    
+    // MARK: - Actions
+    
+    @objc private func endSetButtonTapped() {
+        // Stop the session
+        stopAnalysis()
         
-        // TODO: Show session summary (will be implemented by UI team)
+        // Generate haptic feedback
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+        
+        // Create session summary
+        let summary = generateSessionSummary()
+        
+        // Navigate to summary screen
+        let summaryVC = SessionSummaryViewController()
+        summaryVC.sessionSummary = summary
+        navigationController?.pushViewController(summaryVC, animated: true)
+    }
+    
+    private func generateSessionSummary() -> SessionSummary {
+        guard !sessionRepScores.isEmpty else {
+            // No reps completed - return empty summary
+            return SessionSummary(
+                totalReps: 0,
+                averageScore: 0,
+                highestScore: 0,
+                lowestScore: 0,
+                allRepScores: [],
+                goodFormPercentage: 0,
+                mostCommonIssue: nil,
+                issueCount: 0,
+                performanceTrend: 0
+            )
+        }
+        
+        let totalReps = sessionRepScores.count
+        let averageScore = sessionRepScores.reduce(0, +) / totalReps
+        let highestScore = sessionRepScores.max() ?? 0
+        let lowestScore = sessionRepScores.min() ?? 0
+        let goodFormCount = sessionRepScores.filter { $0 >= 70 }.count
+        let goodFormPercentage = Double(goodFormCount) / Double(totalReps) * 100
+        
+        // Find most common issue
+        var issueCounts: [String: Int] = [:]
+        for cues in sessionCoachingCues {
+            for cue in cues {
+                issueCounts[cue, default: 0] += 1
+            }
+        }
+        
+        let mostCommon = issueCounts.max(by: { $0.value < $1.value })
+        let mostCommonIssue = mostCommon?.key
+        let issueCount = mostCommon?.value ?? 0
+        
+        // Calculate performance trend (compare first half vs second half)
+        let performanceTrend: Double
+        if totalReps >= 4 {
+            let halfPoint = totalReps / 2
+            let firstHalfAvg = sessionRepScores.prefix(halfPoint).reduce(0, +) / halfPoint
+            let secondHalfAvg = sessionRepScores.suffix(totalReps - halfPoint).reduce(0, +) / (totalReps - halfPoint)
+            performanceTrend = Double(secondHalfAvg - firstHalfAvg)
+        } else {
+            performanceTrend = 0
+        }
+        
+        return SessionSummary(
+            totalReps: totalReps,
+            averageScore: averageScore,
+            highestScore: highestScore,
+            lowestScore: lowestScore,
+            allRepScores: sessionRepScores,
+            goodFormPercentage: goodFormPercentage,
+            mostCommonIssue: mostCommonIssue,
+            issueCount: issueCount,
+            performanceTrend: performanceTrend
+        )
     }
     
     // MARK: - Error Handling
@@ -301,9 +416,15 @@ extension CameraViewController: PoseDataDelegate {
         // 3. Update UI with live data
         updateUI(formResult: formResult, repData: currentRepData!)
         
-        // 4. Show rep completion feedback
+        // 4. Show rep completion feedback and track session data
         if wasAscending && formResult.squatState == .standing {
             showRepCompletionFeedback(repData: currentRepData!)
+            
+            // Track rep data for session summary
+            if let quality = currentRepData?.lastRepQuality {
+                sessionRepScores.append(quality)
+                sessionCoachingCues.append(currentRepData?.lastRepCues ?? [])
+            }
         }
         
         // 4. Update SkeletonRenderer color based on isGoodForm
