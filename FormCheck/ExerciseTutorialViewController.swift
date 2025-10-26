@@ -12,7 +12,10 @@ final class ExerciseTutorialViewController: UIViewController {
     
     // MARK: - Properties
     
-    var exerciseName: String = "Barbell Back Squats"
+    var exercise: Exercise?
+    private var exerciseName: String {
+        return exercise?.name ?? "Exercise"
+    }
     
     // MARK: - UI Components
     
@@ -57,7 +60,7 @@ final class ExerciseTutorialViewController: UIViewController {
     
     private let descriptionLabel: UILabel = {
         let label = UILabel()
-        label.text = "Barbell back squats are a fundamental lower body exercise that primarily targets the quadriceps, hamstrings, glutes, and core muscles. It involves lowering your body by bending at the hips and knees while keeping a barbell balanced on your upper back, then returning to a standing position. Proper form is crucial to maximize effectiveness and prevent injury. Ideally, your shoulders should remain on top of your feet throughout the movement, with your knees tracking over your toes and your back maintaining a neutral position."
+        label.text = ""
         label.font = .systemFont(ofSize: 16, weight: .regular)
         label.textColor = .white
         label.numberOfLines = 0
@@ -92,7 +95,7 @@ final class ExerciseTutorialViewController: UIViewController {
     }()
     private let primaryMusclesListLabel: UILabel = {
         let label = UILabel()
-        label.text = "Quadriceps, Hamstrings, Glutes"
+        label.text = ""
         label.font = .systemFont(ofSize: 14, weight: .medium)
         label.textColor = .white
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -109,7 +112,7 @@ final class ExerciseTutorialViewController: UIViewController {
     }()
     private let secondaryMusclesListLabel: UILabel = {
         let label = UILabel()
-        label.text = "Adductors, Calves, Lower Back, Core"
+        label.text = ""
         label.font = .systemFont(ofSize: 14, weight: .medium)
         label.textColor = .white
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -132,6 +135,7 @@ final class ExerciseTutorialViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        updateContent()
     }
     
     // MARK: - Setup
@@ -227,6 +231,39 @@ final class ExerciseTutorialViewController: UIViewController {
             understandButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
             understandButton.heightAnchor.constraint(equalToConstant: 56)
         ])
+    }
+    
+    // MARK: - Update Content
+    
+    private func updateContent() {
+        guard let exercise = exercise else { return }
+        
+        // Update navigation title
+        title = exerciseName
+        
+        // Update description
+        descriptionLabel.text = exercise.description
+        
+        // Update primary muscles
+        primaryMusclesListLabel.text = exercise.primaryMuscles
+        
+        // Update secondary muscles
+        secondaryMusclesListLabel.text = exercise.secondaryMuscles
+        
+        // Update tutorial image
+        if let bundled = UIImage(named: exercise.tutorialImageName) {
+            figureImageView.image = bundled
+        }
+        
+        // Update animation/video placeholder
+        if let anim = UIImage(named: exercise.animationAssetName) {
+            videoPlaceholderView.image = anim
+            videoPlaceholderLabel.isHidden = true
+        } else {
+            videoPlaceholderView.image = nil
+            videoPlaceholderView.backgroundColor = .darkGray
+            videoPlaceholderLabel.isHidden = false
+        }
     }
     
     // MARK: - Actions

@@ -87,15 +87,23 @@ final class HomeViewController: UIViewController {
     
     private let bodyweightSquatsButton: UIButton = {
         let button = UIButton(type: .system)
-        button.backgroundColor = .systemBlue
+        button.backgroundColor = UIColor(red: 0.36, green: 0.36, blue: 1.0, alpha: 1.0) // Blue-purple color
         button.layer.cornerRadius = 16
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
     }()
     
+    private let bodyweightIconContainer: UIView = {
+        let view = UIView()
+        view.backgroundColor = UIColor(red: 0.42, green: 0.35, blue: 0.80, alpha: 1.0) // Darker blue-purple for circle
+        view.layer.cornerRadius = 24 // Will be circular
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+    
     private let bodyweightIconView: UIImageView = {
         let imageView = UIImageView()
-        let config = UIImage.SymbolConfiguration(pointSize: 28, weight: .bold)
+        let config = UIImage.SymbolConfiguration(pointSize: 24, weight: .bold)
         imageView.image = UIImage(systemName: "figure.squat", withConfiguration: config)
         imageView.tintColor = .white
         imageView.translatesAutoresizingMaskIntoConstraints = false
@@ -104,9 +112,11 @@ final class HomeViewController: UIViewController {
     
     private let bodyweightTitleLabel: UILabel = {
         let label = UILabel()
-        label.text = "Free Bodyweight Squats"
-        label.font = .systemFont(ofSize: 18, weight: .semibold)
+        label.text = "Free Bodyweight\nSquats"
+        label.font = .systemFont(ofSize: 16, weight: .semibold)
         label.textColor = .white
+        label.numberOfLines = 2
+        label.textAlignment = .left
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
@@ -147,7 +157,8 @@ final class HomeViewController: UIViewController {
         barbellSquatsButton.addSubview(barbellHeartButton)
         
         // Setup bodyweight button content
-        bodyweightSquatsButton.addSubview(bodyweightIconView)
+        bodyweightSquatsButton.addSubview(bodyweightIconContainer)
+        bodyweightIconContainer.addSubview(bodyweightIconView)
         bodyweightSquatsButton.addSubview(bodyweightTitleLabel)
         bodyweightSquatsButton.addSubview(bodyweightHeartButton)
         
@@ -207,35 +218,43 @@ final class HomeViewController: UIViewController {
             bodyweightSquatsButton.topAnchor.constraint(equalTo: barbellSquatsButton.bottomAnchor, constant: 16),
             bodyweightSquatsButton.heightAnchor.constraint(equalToConstant: 80),
             
-            // Bodyweight icon
-            bodyweightIconView.leadingAnchor.constraint(equalTo: bodyweightSquatsButton.leadingAnchor, constant: 20),
-            bodyweightIconView.centerYAnchor.constraint(equalTo: bodyweightSquatsButton.centerYAnchor),
-            bodyweightIconView.widthAnchor.constraint(equalToConstant: 32),
-            bodyweightIconView.heightAnchor.constraint(equalToConstant: 32),
+            // Bodyweight icon container (circular background)
+            bodyweightIconContainer.leadingAnchor.constraint(equalTo: bodyweightSquatsButton.leadingAnchor, constant: 12),
+            bodyweightIconContainer.centerYAnchor.constraint(equalTo: bodyweightSquatsButton.centerYAnchor),
+            bodyweightIconContainer.widthAnchor.constraint(equalToConstant: 48),
+            bodyweightIconContainer.heightAnchor.constraint(equalToConstant: 48),
+            
+            // Bodyweight icon centered in container
+            bodyweightIconView.centerXAnchor.constraint(equalTo: bodyweightIconContainer.centerXAnchor),
+            bodyweightIconView.centerYAnchor.constraint(equalTo: bodyweightIconContainer.centerYAnchor),
+            bodyweightIconView.widthAnchor.constraint(equalToConstant: 24),
+            bodyweightIconView.heightAnchor.constraint(equalToConstant: 24),
             
             // Bodyweight title
-            bodyweightTitleLabel.leadingAnchor.constraint(equalTo: bodyweightIconView.trailingAnchor, constant: 16),
+            bodyweightTitleLabel.leadingAnchor.constraint(equalTo: bodyweightIconContainer.trailingAnchor, constant: 12),
             bodyweightTitleLabel.centerYAnchor.constraint(equalTo: bodyweightSquatsButton.centerYAnchor),
             
             // Bodyweight heart
-            bodyweightHeartButton.trailingAnchor.constraint(equalTo: bodyweightSquatsButton.trailingAnchor, constant: -20),
+            bodyweightHeartButton.trailingAnchor.constraint(equalTo: bodyweightSquatsButton.trailingAnchor, constant: -16),
             bodyweightHeartButton.centerYAnchor.constraint(equalTo: bodyweightSquatsButton.centerYAnchor),
             bodyweightHeartButton.widthAnchor.constraint(equalToConstant: 32),
             bodyweightHeartButton.heightAnchor.constraint(equalToConstant: 32),
         ])
     }
     
-    // MARK: - Actions
+        // MARK: - Actions
     
     @objc private func barbellSquatsButtonTapped() {
+        let exercise = ExerciseDataSource.getExercise(byName: "Barbell Back Squats")
         let tutorialVC = ExerciseTutorialViewController()
-        tutorialVC.exerciseName = "Barbell Back Squats"
+        tutorialVC.exercise = exercise
         navigationController?.pushViewController(tutorialVC, animated: true)
     }
     
     @objc private func bodyweightSquatsButtonTapped() {
+        let exercise = ExerciseDataSource.getExercise(byName: "Free Bodyweight Squats")
         let tutorialVC = ExerciseTutorialViewController()
-        tutorialVC.exerciseName = "Free Bodyweight Squats"
+        tutorialVC.exercise = exercise
         navigationController?.pushViewController(tutorialVC, animated: true)
     }
 }
