@@ -130,7 +130,7 @@ NOTE: ONLY AVAILABLE TO IOS USERS WITH A MACBOOK
 
 <img height="64" width="64" src="https://media.licdn.com/dms/image/v2/D5635AQENzoDA6Gp37g/profile-framedphoto-shrink_400_400/profile-framedphoto-shrink_400_400/0/1737068686781?e=1762095600&v=beta&t=KynEgleJQBrb9Iv5HN8SrIvpwo1vUabVh9uxoHlMhXs">
 
-- Matt Tang tangm1@ufl.edu
+- Matt Tang - tangm1@ufl.edu
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
