@@ -17,12 +17,12 @@ final class FeedbackOverlayManager {
     /// Container view with semi-transparent dark background for feedback text
     private let topFeedbackContainer: UIView = {
         let view = UIView()
-        view.backgroundColor = UIColor.black.withAlphaComponent(0.4)
-        view.layer.cornerRadius = 8
+        view.backgroundColor = UIColor.black.withAlphaComponent(0.45) // adjusted for better readability
+        view.layer.cornerRadius = 10 // slightly more rounded like figma
         view.layer.shadowColor = UIColor.black.cgColor
         view.layer.shadowOffset = CGSize(width: 0, height: 2)
         view.layer.shadowRadius = 4
-        view.layer.shadowOpacity = 0.3
+        view.layer.shadowOpacity = 0.25
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
@@ -43,12 +43,12 @@ final class FeedbackOverlayManager {
     /// Container for rep counter stack with semi-transparent background
     private let repCounterContainer: UIView = {
         let view = UIView()
-        view.backgroundColor = UIColor.black.withAlphaComponent(0.4)
-        view.layer.cornerRadius = 8
+        view.backgroundColor = UIColor.black.withAlphaComponent(0.45) // matched with top container
+        view.layer.cornerRadius = 10 // matched with top container
         view.layer.shadowColor = UIColor.black.cgColor
         view.layer.shadowOffset = CGSize(width: 0, height: 2)
         view.layer.shadowRadius = 4
-        view.layer.shadowOpacity = 0.3
+        view.layer.shadowOpacity = 0.25
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
@@ -163,11 +163,11 @@ final class FeedbackOverlayManager {
         // Add label to container
         topFeedbackContainer.addSubview(topFeedbackLabel)
         
-        // Layout constraints for container
+        // Layout constraints for container - adjusted to match figma
         NSLayoutConstraint.activate([
-            topFeedbackContainer.topAnchor.constraint(equalTo: parentView.safeAreaLayoutGuide.topAnchor, constant: 16),
-            topFeedbackContainer.leadingAnchor.constraint(equalTo: parentView.leadingAnchor, constant: 16),
-            topFeedbackContainer.trailingAnchor.constraint(equalTo: parentView.trailingAnchor, constant: -16),
+            topFeedbackContainer.topAnchor.constraint(equalTo: parentView.safeAreaLayoutGuide.topAnchor, constant: 12),
+            topFeedbackContainer.leadingAnchor.constraint(equalTo: parentView.leadingAnchor, constant: 20),
+            topFeedbackContainer.trailingAnchor.constraint(equalTo: parentView.trailingAnchor, constant: -20),
             topFeedbackContainer.heightAnchor.constraint(equalToConstant: 60)
         ])
         
@@ -198,9 +198,9 @@ final class FeedbackOverlayManager {
         repCounterStack.addArrangedSubview(separator2)
         repCounterStack.addArrangedSubview(badLabel)
         
-        // Layout constraints for container
+        // Layout constraints for container - positioned to not conflict with record button
         NSLayoutConstraint.activate([
-            repCounterContainer.bottomAnchor.constraint(equalTo: parentView.safeAreaLayoutGuide.bottomAnchor, constant: -24),
+            repCounterContainer.bottomAnchor.constraint(equalTo: parentView.safeAreaLayoutGuide.bottomAnchor, constant: -20),
             repCounterContainer.centerXAnchor.constraint(equalTo: parentView.centerXAnchor),
             repCounterContainer.heightAnchor.constraint(equalToConstant: 44)
         ])

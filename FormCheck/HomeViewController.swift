@@ -84,8 +84,10 @@ final class HomeViewController: UIViewController {
     // MARK: - Actions
     
     @objc private func startButtonTapped() {
-        let cameraVC = CameraViewController()
-        navigationController?.pushViewController(cameraVC, animated: true)
+        // TODO: switch back to CameraViewController when ready
+        // Using test harness for now to test feedback system
+        let testVC = FeedbackTestViewController()
+        navigationController?.pushViewController(testVC, animated: true)
     }
 }
 
