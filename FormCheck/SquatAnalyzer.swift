@@ -170,19 +170,35 @@ final class SquatAnalyzer {
                 }
             } else {
                 // In between - use movement direction
-                if hipMovement > 1.0 {
+                // Special case: if ascending and close to standing, assume standing (reduces bouncing)
+                if currentState == .ascending && hipToAnkle > 200.0 && abs(hipMovement) < 15.0 {
+                    // Close to standing with minimal movement - assume standing
+                    desiredState = .standing
+                    if shouldLog {
+                        print("   🧍 Near standing position with minimal movement - Desired State: .standing")
+                    }
+                } else if hipMovement > 3.0 {
+                    // Significant downward movement
                     desiredState = .descending
                     if shouldLog {
                         print("   ⬇️  Moving down - Desired State: .descending")
                     }
-                } else if hipMovement < -1.0 {
+                } else if hipMovement < -3.0 {
+                    // Significant upward movement
                     desiredState = .ascending
                     if shouldLog {
                         print("   ⬆️  Moving up - Desired State: .ascending")
                     }
                 } else {
-                    // Minimal movement - maintain current state
-                    desiredState = currentState
+                    // Minimal movement - if ascending, assume standing; otherwise maintain
+                    if currentState == .ascending {
+                        desiredState = .standing
+                        if shouldLog {
+                            print("   🧍 Ascending with minimal movement - Desired State: .standing")
+                        }
+                    } else {
+                        desiredState = currentState
+                    }
                 }
             }
         } else {

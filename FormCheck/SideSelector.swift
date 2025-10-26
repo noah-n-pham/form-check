@@ -41,6 +41,12 @@ final class SideSelector {
     /// Currently selected side
     private var currentSide: BodySide = .unknown
     
+    /// Locked side for current rep cycle (prevents mid-rep switching)
+    private var lockedSide: BodySide?
+    
+    /// Whether we're currently in a rep cycle (not in standing state)
+    private var inRepCycle: Bool = false
+    
     /// Hysteresis threshold - other side must be this much better (%) to switch
     private let switchThreshold: Float = 0.15  // 15% better
     
@@ -50,9 +56,28 @@ final class SideSelector {
     // MARK: - Public Methods
     
     /// Select the best side and filter pose data to include only that side's joints
-    /// - Parameter poseData: Full pose data from camera
+    /// - Parameters:
+    ///   - poseData: Full pose data from camera
+    ///   - squatState: Current squat state (for side locking logic)
     /// - Returns: Filtered data with only one side, or nil if both sides are poor quality
-    func selectBestSide(from poseData: PoseData) -> FilteredPoseData? {
+    func selectBestSide(from poseData: PoseData, squatState: SquatState? = nil) -> FilteredPoseData? {
+        // Determine if we're in a rep cycle
+        if let state = squatState {
+            let wasInRepCycle = inRepCycle
+            inRepCycle = (state != .standing)
+            
+            // Entering a rep cycle - lock the side
+            if !wasInRepCycle && inRepCycle {
+                lockedSide = currentSide
+                print("🔒 Side LOCKED to \(currentSide) for this rep cycle")
+            }
+            
+            // Exiting a rep cycle - unlock for re-evaluation
+            if wasInRepCycle && !inRepCycle {
+                lockedSide = nil
+                print("🔓 Side UNLOCKED - can re-evaluate between reps")
+            }
+        }
         // Calculate quality for left side
         let leftQuality = calculateSideQuality(
             shoulder: poseData.jointPositions[.leftShoulder],
@@ -79,7 +104,27 @@ final class SideSelector {
             side: .right
         )
         
-        // Determine which side to use with hysteresis
+        // If side is locked during rep cycle, use locked side
+        if let locked = lockedSide {
+            switch locked {
+            case .left:
+                if let left = leftQuality {
+                    return left  // Use locked side even if other is better
+                }
+                // Locked side unavailable, try other
+                return rightQuality
+            case .right:
+                if let right = rightQuality {
+                    return right  // Use locked side even if other is better
+                }
+                // Locked side unavailable, try other
+                return leftQuality
+            case .unknown:
+                break  // Proceed to normal selection
+            }
+        }
+        
+        // Not locked - determine which side to use with hysteresis
         let selectedSide = selectSideWithHysteresis(
             leftQuality: leftQuality,
             rightQuality: rightQuality
@@ -104,6 +149,9 @@ final class SideSelector {
     /// Reset side selection
     func reset() {
         currentSide = .unknown
+        lockedSide = nil
+        inRepCycle = false
+        print("🔄 Side selector reset - side unlocked")
     }
     
     // MARK: - Private Methods

@@ -203,8 +203,8 @@ extension CameraViewController: PoseDataDelegate {
         previousState = formResult.squatState
         
         // 4. Update SkeletonRenderer color based on isGoodForm
-        // Use smart side selection to filter visual data, but fall back to showing all joints if quality is poor
-        if let filteredVisualData = sideSelector.selectBestSide(from: data) {
+        // Use side locking (pass squat state) to prevent mid-rep switching
+        if let filteredVisualData = sideSelector.selectBestSide(from: data, squatState: formResult.squatState) {
             // Create filtered PoseData with only the selected side's joints
             let visualPoseData = createFilteredPoseData(from: filteredVisualData)
             
@@ -218,7 +218,7 @@ extension CameraViewController: PoseDataDelegate {
         
         // === Developer A's Visual Components ===
         
-        // Update body detection state
+        // Update body detection state (use raw data for detection logic)
         let bodyDetected = bodyDetectionManager.updateDetectionState(poseData: data)
         
         // Update positioning guide visibility
