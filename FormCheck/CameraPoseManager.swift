@@ -38,27 +38,14 @@ final class CameraPoseManager: NSObject {
         return request
     }()
     
-    // MARK: - Target Joint Keys
+    // MARK: - Target Joint Keys (Squat Analysis Focus)
     
     private let targetJoints: [VNHumanBodyPoseObservation.JointName] = [
-        // Head
-        .nose,
-        
-        // Shoulders
+        // Core joints for squat form analysis only
         .leftShoulder,
         .rightShoulder,
-        
-        // Arms
-        .leftElbow,
-        .rightElbow,
-        .leftWrist,
-        .rightWrist,
-        
-        // Torso
         .leftHip,
         .rightHip,
-        
-        // Legs
         .leftKnee,
         .rightKnee,
         .leftAnkle,

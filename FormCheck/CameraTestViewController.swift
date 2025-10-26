@@ -78,27 +78,14 @@ final class CameraTestViewController: UIViewController {
     private var frameCount: Int = 0
     private var currentFPS: Double = 0
     
-    // MARK: - Joint Colors
+    // MARK: - Joint Colors (Squat Analysis Focus)
     
     private let jointColors: [VNHumanBodyPoseObservation.JointName: UIColor] = [
-        // Head
-        .nose: .systemPurple,
-        
-        // Shoulders
+        // Core squat analysis joints only
         .leftShoulder: .systemBlue,
         .rightShoulder: .systemBlue,
-        
-        // Arms
-        .leftElbow: .systemCyan,
-        .rightElbow: .systemCyan,
-        .leftWrist: .systemMint,
-        .rightWrist: .systemMint,
-        
-        // Torso
         .leftHip: .systemGreen,
         .rightHip: .systemGreen,
-        
-        // Legs
         .leftKnee: .systemRed,
         .rightKnee: .systemRed,
         .leftAnkle: .systemYellow,
@@ -256,14 +243,13 @@ final class CameraTestViewController: UIViewController {
     
     private func updateDebugLabel(jointCount: Int, avgConfidence: Float) {
         let debugText = """
-          🎥 CAMERA TEST MODE
+          🎥 SQUAT ANALYSIS MODE
           
-          Joints: \(jointCount) / 15
+          Joints: \(jointCount) / 8
           Confidence: \(String(format: "%.2f", avgConfidence))
           FPS: \(String(format: "%.1f", currentFPS))
           
-          🟣 Head  🔵 Shoulders
-          🩵 Elbows  🟢 Hips
+          🔵 Shoulders  🟢 Hips
           🔴 Knees  🟡 Ankles
         """
         

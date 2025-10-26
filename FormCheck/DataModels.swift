@@ -39,23 +39,40 @@ enum SquatState {
 
 /// Result of analyzing squat form at a given moment
 struct FormAnalysisResult {
-    /// Whether the current form meets all quality thresholds
-    let isGoodForm: Bool
-    
-    /// Primary form issue if any, nil if form is good
-    let primaryIssue: String?
+    /// Form quality rating from 0-100 (100 = perfect form)
+    let formQuality: Int
     
     /// Calculated knee angle in degrees, nil if not calculable
     let kneeAngle: Double?
     
+    /// Knee forward percentage of shin length
+    let kneeForwardPercent: Double?
+    
+    /// Back angle from vertical in degrees
+    let backAngle: Double?
+    
     /// Current state in the squat movement cycle
     let squatState: SquatState
     
-    init(isGoodForm: Bool, primaryIssue: String?, kneeAngle: Double?, squatState: SquatState) {
-        self.isGoodForm = isGoodForm
-        self.primaryIssue = primaryIssue
+    /// Concise coaching cues for corrections needed
+    let coachingCues: [String]
+    
+    /// Detailed breakdown of scoring (for console logging)
+    let scoreBreakdown: String?
+    
+    init(formQuality: Int, kneeAngle: Double?, kneeForwardPercent: Double?, backAngle: Double?, squatState: SquatState, coachingCues: [String], scoreBreakdown: String? = nil) {
+        self.formQuality = formQuality
         self.kneeAngle = kneeAngle
+        self.kneeForwardPercent = kneeForwardPercent
+        self.backAngle = backAngle
         self.squatState = squatState
+        self.coachingCues = coachingCues
+        self.scoreBreakdown = scoreBreakdown
+    }
+    
+    /// Legacy compatibility - consider form good if rating >= 70
+    var isGoodForm: Bool {
+        return formQuality >= 70
     }
 }
 
@@ -63,25 +80,23 @@ struct FormAnalysisResult {
 
 /// Tracks repetition counts and performance metrics
 struct RepCountData {
-    /// Total number of reps completed
+    /// Total number of full reps completed
     let totalReps: Int
     
-    /// Number of reps with good form
-    let goodFormReps: Int
+    /// Average form quality rating across all reps (0-100)
+    let averageFormQuality: Int
     
-    /// Number of reps with bad form
-    let badFormReps: Int
+    /// Last rep's form quality rating (0-100)
+    let lastRepQuality: Int?
     
-    /// Percentage of reps with good form (0-100)
-    var goodFormPercentage: Double {
-        guard totalReps > 0 else { return 0.0 }
-        return (Double(goodFormReps) / Double(totalReps)) * 100.0
-    }
+    /// Last rep's coaching cues
+    let lastRepCues: [String]
     
-    init(totalReps: Int, goodFormReps: Int, badFormReps: Int) {
+    init(totalReps: Int, averageFormQuality: Int, lastRepQuality: Int?, lastRepCues: [String]) {
         self.totalReps = totalReps
-        self.goodFormReps = goodFormReps
-        self.badFormReps = badFormReps
+        self.averageFormQuality = averageFormQuality
+        self.lastRepQuality = lastRepQuality
+        self.lastRepCues = lastRepCues
     }
 }
 

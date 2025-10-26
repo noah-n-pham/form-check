@@ -20,26 +20,14 @@ final class SkeletonRenderer {
     /// Single reusable shape layer for skeleton lines
     private let skeletonLayer: CAShapeLayer
     
-    /// Joint connection definitions (limb segments)
+    /// Joint connection definitions (squat analysis focus - core chain only)
     private let connections: [(VNHumanBodyPoseObservation.JointName, VNHumanBodyPoseObservation.JointName)] = [
-        // Head to shoulders (neck)
-        (.nose, .leftShoulder),
-        (.nose, .rightShoulder),
-        
-        // Left arm
-        (.leftShoulder, .leftElbow),
-        (.leftElbow, .leftWrist),
-        
-        // Right arm
-        (.rightShoulder, .rightElbow),
-        (.rightElbow, .rightWrist),
-        
-        // Torso - left side
+        // Left side chain: shoulder → hip → knee → ankle
         (.leftShoulder, .leftHip),
         (.leftHip, .leftKnee),
         (.leftKnee, .leftAnkle),
         
-        // Torso - right side
+        // Right side chain: shoulder → hip → knee → ankle
         (.rightShoulder, .rightHip),
         (.rightHip, .rightKnee),
         (.rightKnee, .rightAnkle)
