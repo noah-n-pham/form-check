@@ -36,7 +36,7 @@
 <h3 align="center">Form Check</h3>
 
   <p align="center">
-    AI that perfects movement for a healthier you.
+    Your AI spotter that catches bad form before it catches you
     <br />
   </p>
 </div>
