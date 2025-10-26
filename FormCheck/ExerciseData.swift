@@ -42,7 +42,7 @@ struct ExerciseDataSource {
             primaryMuscles: "Quadriceps, Glutes, Hamstrings",
             secondaryMuscles: "Core, Calves, Lower Back",
             tutorialImageName: "quadriceps_muscles",
-            animationAssetName: "squat_animation",
+            animationAssetName: "bodyweight_squat_animation",
             buttonIconName: "figure.squat",
             customButtonIconName: "bodyweight_squat_icon",
             buttonColor: UIColor(red: 0.20, green: 0.40, blue: 0.80, alpha: 1.0), // More blue, less purple

@@ -200,7 +200,7 @@ final class ExerciseTutorialViewController: UIViewController {
             
             // Figure image
             figureImageView.topAnchor.constraint(equalTo: descriptionLabel.bottomAnchor, constant: 32),
-            figureImageView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            figureImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
             figureImageView.widthAnchor.constraint(equalToConstant: 100),
             figureImageView.heightAnchor.constraint(equalToConstant: 100),
             
