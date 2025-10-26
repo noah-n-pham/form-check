@@ -61,9 +61,6 @@
       </ul>
     </li>
     <li><a href="#usage">Usage</a></li>
-    <li><a href="#roadmap">Roadmap</a></li>
-    <li><a href="#contributing">Contributing</a></li>
-    <li><a href="#license">License</a></li>
     <li><a href="#contact">Contact</a></li>
     <li><a href="#acknowledgments">Acknowledgments</a></li>
   </ol>
@@ -74,14 +71,20 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-[![Product Name Screen Shot][product-screenshot]](https://example.com)
+<!-- [![Product Name Screen Shot][product-screenshot]](https://example.com) -->
 
-
+Built for iOS 18+ devices (iPhone)
+All the processing is done within the app, no network requirement
 
 ### Built With
 
-* [![Swift][Swift]][Swift]
-* [![SwiftUI][SwiftUI]][SwiftUI]
+* Swift
+* UIKit (use UIKit for all UI, including home screen and camera view)
+* AVFoundation (AVCaptureSession, AVCaptureVideoPreviewLayer, AVCaptureVideoDataOutput)
+* Vision framework (VNDetectHumanBodyPoseRequest for pose detection)
+* CAShapeLayer/CALayer (for drawing overlays on camera preview)
+* UILabel (for text feedback)
+* AudioServicesPlaySystemSound (for audio alerts)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -90,46 +93,44 @@
 <!-- GETTING STARTED -->
 ## Getting Started
 
-
 ### Prerequisites
-
+iOS 18+
+Apple iPhone 13 (or any later or Pro model)
+XCode
 
 ### Installation
-
+1. Clone this repository into your XCode
+2. Connect your iPhone to your computer
+3. Deploy codebase into iPhone
 
 <!-- USAGE EXAMPLES -->
 ## Usage
+NOTE: ONLY AVAILABLE TO IOS USERS WITH A MACBOOK
 
-
-_For more examples, please refer to the [Documentation](https://example.com)_
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- ROADMAP -->
-## Roadmap
-
-- [x] Feature 1
-- [ ] Feature 2
-- [ ] Feature 3
-    - [ ] Nested Feature
-
+1. Once this app is deployed into your iPhone, look up your preferred exercise of the available options.
+2. Select the workout, learning what is the correct posture through the summary
+3. Place your phone to get a side-angle camera of you, making sure to be 6 feet away from your phone
+4. Perform your exercise
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
 
 <!-- CONTACT -->
 ## Contact
+### CS Majors
 
-Noah Pham  - 
-Kenzo Fukuda - kenzof28@gmail.com
-Jonathan Tang - 
-Matt Tang - 
+<img src="https://contrib.rocks/image?repo=noah-n-pham/form-check">
+
+- Noah Pham (noah-n-pham) - noah.n.pham@gmail.com
+
+- Kenzo Fukuda (kofki) - kenzof28@gmail.com
+  
+- Jonathan Tang (Jonathan510T) - jonathant0842@gmail.com
+
+### Mechanical Major
+
+<img height="64" width="64" src="https://media.licdn.com/dms/image/v2/D5635AQENzoDA6Gp37g/profile-framedphoto-shrink_400_400/profile-framedphoto-shrink_400_400/0/1737068686781?e=1762095600&v=beta&t=KynEgleJQBrb9Iv5HN8SrIvpwo1vUabVh9uxoHlMhXs">
+
+- Matt Tang tangm1@ufl.edu
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -138,9 +139,9 @@ Matt Tang -
 <!-- ACKNOWLEDGMENTS -->
 ## Acknowledgments
 
-* []()
-* []()
-* []()
+* [UF AI Days Hackathon](https://ai.ufl.edu/about/ai-days/)
+* [Vobile](https://vobilegroup.com/home?lang=en-us)
+* [UF SASE](https://ufsase.com/)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
