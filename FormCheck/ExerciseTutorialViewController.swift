@@ -244,37 +244,15 @@ final class ExerciseTutorialViewController: UIViewController {
         
         // Update tutorial image (supports both static images and animated GIFs)
         if let bundled = UIImage(named: exercise.tutorialImageName) {
-            figureImageView.image = bundled
-            
-            // For animated GIFs from assets, check if there's animation data
-            if let imageData = NSDataAsset(name: exercise.tutorialImageName)?.data,
-               let source = CGImageSourceCreateWithData(imageData as CFData, nil) {
-                let frameCount = CGImageSourceGetCount(source)
-                
-                if frameCount > 1 {
-                    // This is an animated GIF - load all frames
-                    var images: [UIImage] = []
-                    var totalDuration: TimeInterval = 0
-                    
-                    for i in 0..<frameCount {
-                        if let cgImage = CGImageSourceCreateImageAtIndex(source, i, nil) {
-                            // Get frame duration
-                            let frameProperties = CGImageSourceCopyPropertiesAtIndex(source, i, nil) as? [String: Any]
-                            let gifProperties = frameProperties?[kCGImagePropertyGIFDictionary as String] as? [String: Any]
-                            let frameDuration = gifProperties?[kCGImagePropertyGIFDelayTime as String] as? Double ?? 0.1
-                            
-                            totalDuration += frameDuration
-                            images.append(UIImage(cgImage: cgImage))
-                        }
-                    }
-                    
-                    if !images.isEmpty {
-                        figureImageView.animationImages = images
-                        figureImageView.animationDuration = totalDuration
-                        figureImageView.animationRepeatCount = 0 // Loop forever
-                        figureImageView.startAnimating()
-                    }
-                }
+            // Try to load as animated GIF if possible
+            if let asset = NSDataAsset(name: exercise.tutorialImageName),
+               let source = CGImageSourceCreateWithData(asset.data as CFData, nil),
+               CGImageSourceGetCount(source) > 1 {
+                // This is an animated GIF - load all frames
+                loadAnimatedGIF(from: source)
+            } else {
+                // Static image
+                figureImageView.image = bundled
             }
         } else {
             // Fallback to system symbol
@@ -291,6 +269,33 @@ final class ExerciseTutorialViewController: UIViewController {
             videoPlaceholderView.image = nil
             videoPlaceholderView.backgroundColor = .darkGray
             videoPlaceholderLabel.isHidden = false
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func loadAnimatedGIF(from source: CGImageSource) {
+        let frameCount = CGImageSourceGetCount(source)
+        var images: [UIImage] = []
+        var totalDuration: TimeInterval = 0
+        
+        for i in 0..<frameCount {
+            if let cgImage = CGImageSourceCreateImageAtIndex(source, i, nil) {
+                // Get frame duration
+                let frameProperties = CGImageSourceCopyPropertiesAtIndex(source, i, nil) as? [String: Any]
+                let gifProperties = frameProperties?[kCGImagePropertyGIFDictionary as String] as? [String: Any]
+                let frameDuration = gifProperties?[kCGImagePropertyGIFDelayTime as String] as? Double ?? 0.1
+                
+                totalDuration += frameDuration
+                images.append(UIImage(cgImage: cgImage))
+            }
+        }
+        
+        if !images.isEmpty {
+            figureImageView.animationImages = images
+            figureImageView.animationDuration = totalDuration
+            figureImageView.animationRepeatCount = 0 // Loop forever
+            figureImageView.startAnimating()
         }
     }
     
