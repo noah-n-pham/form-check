@@ -40,7 +40,7 @@ final class SquatAnalyzer {
     private var lastLogTime: Date = Date()
     private let logInterval: TimeInterval = 0.5  // Log every 0.5 seconds
     
-    // MARK: - Adaptive Standing Detection
+    // MARK: - Adaptive Thresholds (Scale to User Size & Distance)
     
     /// Baseline hip-to-ankle distance when standing (calibrated after first rep)
     private var standingBaseline: CGFloat?
@@ -48,8 +48,12 @@ final class SquatAnalyzer {
     /// Fixed threshold for first rep (safe fallback)
     private let fixedStandingThreshold: CGFloat = 270.0
     
-    /// Minimum hip-to-ankle drop to validate a proper squat
-    private let minSquatDepthDrop: CGFloat = 100.0  // Must drop by 100px to be a real squat
+    /// Squat depth as percentage of standing baseline (adaptive!)
+    /// 50% means hip must get halfway to ankle from standing position
+    private let squatDepthPercentage: CGFloat = 0.50  // 50% of baseline
+    
+    /// Fixed depth threshold for first rep before calibration
+    private let fixedSquatDepthThreshold: CGFloat = 150.0
     
     // MARK: - Analysis Method
     
@@ -106,21 +110,24 @@ final class SquatAnalyzer {
         // Use hip-to-ankle distance for depth detection (works great for side view!)
         let hipToAnkle = ankleY - finalHipY  // Distance from hip to ankle
         
-        // Determine standing threshold (adaptive after first rep)
+        // Determine thresholds (adaptive after first rep)
         let standingThreshold: CGFloat
+        let squatDepthThreshold: CGFloat
+        
         if let baseline = standingBaseline {
-            // Use 85% of recorded baseline for standing detection
-            standingThreshold = baseline * 0.85
+            // ADAPTIVE: Scale thresholds based on user's actual size in frame
+            standingThreshold = baseline * 0.85  // 85% of baseline for standing
+            squatDepthThreshold = baseline * squatDepthPercentage  // 50% of baseline for squat depth
         } else {
-            // First rep: use fixed threshold
+            // First rep: use fixed thresholds (safe fallbacks)
             standingThreshold = fixedStandingThreshold
+            squatDepthThreshold = fixedSquatDepthThreshold
         }
         
-        // Determine if in squat depth
-        // In a deep squat, hip gets much closer to ankle
-        let isInSquatDepth = hipToAnkle < 150.0
+        // Determine if in squat depth (adaptive to user size!)
+        let isInSquatDepth = hipToAnkle < squatDepthThreshold
         
-        // Determine if in standing position (for state transitions)
+        // Determine if in standing position
         let isInStandingPosition = hipToAnkle > standingThreshold
         
         // Throttled logging - only every 0.5 seconds for readability
@@ -134,13 +141,19 @@ final class SquatAnalyzer {
             print("   Knee Y: \(Int(finalKneeY))")
             print("   Ankle Y: \(Int(ankleY))")
             print("   Hip-to-Ankle Distance: \(Int(hipToAnkle))px")
+            
             if let baseline = standingBaseline {
-                print("   Standing Threshold: \(Int(standingThreshold))px (85% of baseline \(Int(baseline))px)")
+                print("   📏 ADAPTIVE THRESHOLDS (based on user size):")
+                print("      Standing: \(Int(standingThreshold))px (85% of \(Int(baseline))px)")
+                print("      Squat Depth: \(Int(squatDepthThreshold))px (50% of \(Int(baseline))px)")
             } else {
-                print("   Standing Threshold: \(Int(standingThreshold))px (fixed - first rep)")
+                print("   📏 FIXED THRESHOLDS (first rep - will calibrate):")
+                print("      Standing: \(Int(standingThreshold))px")
+                print("      Squat Depth: \(Int(squatDepthThreshold))px")
             }
-            print("   📏 Squat Depth: \(isInSquatDepth ? "✅ DEEP (< 150px)" : "❌ SHALLOW (> 150px)")")
-            print("   📏 Standing Position: \(isInStandingPosition ? "✅ YES (> \(Int(standingThreshold))px)" : "❌ NO")")
+            
+            print("   Squat Status: \(isInSquatDepth ? "✅ DEEP (< \(Int(squatDepthThreshold))px)" : "❌ SHALLOW (> \(Int(squatDepthThreshold))px)")")
+            print("   Standing Status: \(isInStandingPosition ? "✅ YES" : "❌ NO")")
             print("   Current State: \(currentState)")
             lastLogTime = currentTime
         }
@@ -237,8 +250,13 @@ final class SquatAnalyzer {
                     if standingBaseline == nil {
                         // First rep completed - record baseline
                         standingBaseline = hipToAnkle
+                        let futureStandingThreshold = hipToAnkle * 0.85
+                        let futureSquatThreshold = hipToAnkle * squatDepthPercentage
                         print("📏 BASELINE CALIBRATED: \(Int(hipToAnkle))px (first rep complete)")
-                        print("   Future standing threshold: \(Int(hipToAnkle * 0.85))px (85% of baseline)")
+                        print("   🎯 ADAPTIVE THRESHOLDS SET:")
+                        print("      Standing: \(Int(futureStandingThreshold))px (85% of baseline)")
+                        print("      Squat Depth: \(Int(futureSquatThreshold))px (50% of baseline)")
+                        print("   ✨ System now personalized to your size & distance!")
                     }
                 }
             }
