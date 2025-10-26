@@ -14,12 +14,12 @@ import CoreGraphics
 /// Represents detected pose data from Vision framework
 struct PoseData {
     /// Dictionary mapping joint keypoints to their screen coordinates
-    let jointPositions: [VNRecognizedPointKey: CGPoint]
+    let jointPositions: [VNHumanBodyPoseObservation.JointName: CGPoint]
     
     /// Dictionary mapping joint keypoints to their confidence values (0.0-1.0)
-    let confidences: [VNRecognizedPointKey: Float]
+    let confidences: [VNHumanBodyPoseObservation.JointName: Float]
     
-    init(jointPositions: [VNRecognizedPointKey: CGPoint], confidences: [VNRecognizedPointKey: Float]) {
+    init(jointPositions: [VNHumanBodyPoseObservation.JointName: CGPoint], confidences: [VNHumanBodyPoseObservation.JointName: Float]) {
         self.jointPositions = jointPositions
         self.confidences = confidences
     }
