@@ -108,6 +108,14 @@ final class FeedbackOverlayManager {
         return label
     }()
     
+    // MARK: - Gradient Overlays
+    
+    /// Top gradient layer for improved text readability
+    private var topGradientLayer: CAGradientLayer?
+    
+    /// Bottom gradient layer for improved text readability
+    private var bottomGradientLayer: CAGradientLayer?
+    
     // MARK: - Properties
     
     /// Reference to the parent view (camera view)
@@ -136,6 +144,9 @@ final class FeedbackOverlayManager {
     /// Sets up all overlay components and adds them to the parent view
     private func setupOverlays() {
         guard let parentView = parentView else { return }
+        
+        // Setup gradient overlays first (as bottom-most layers)
+        setupGradientOverlays()
         
         // Setup top feedback container and label
         setupTopFeedback(in: parentView)
@@ -201,6 +212,41 @@ final class FeedbackOverlayManager {
             repCounterStack.leadingAnchor.constraint(equalTo: repCounterContainer.leadingAnchor, constant: 20),
             repCounterStack.trailingAnchor.constraint(equalTo: repCounterContainer.trailingAnchor, constant: -20)
         ])
+    }
+    
+    /// Sets up gradient overlays at top and bottom of screen for improved text readability
+    func setupGradientOverlays() {
+        guard let parentView = parentView else { return }
+        
+        let gradientHeight: CGFloat = 80
+        let viewWidth = parentView.bounds.width
+        
+        // Create top gradient layer
+        let topGradient = CAGradientLayer()
+        topGradient.frame = CGRect(x: 0, y: 0, width: viewWidth, height: gradientHeight)
+        topGradient.colors = [
+            UIColor.black.withAlphaComponent(0.5).cgColor,
+            UIColor.black.withAlphaComponent(0.0).cgColor
+        ]
+        topGradient.locations = [0.0, 1.0]
+        
+        // Insert at index 0 to be bottom-most layer
+        parentView.layer.insertSublayer(topGradient, at: 0)
+        topGradientLayer = topGradient
+        
+        // Create bottom gradient layer
+        let bottomGradient = CAGradientLayer()
+        let bottomY = parentView.bounds.height - gradientHeight
+        bottomGradient.frame = CGRect(x: 0, y: bottomY, width: viewWidth, height: gradientHeight)
+        bottomGradient.colors = [
+            UIColor.black.withAlphaComponent(0.0).cgColor,
+            UIColor.black.withAlphaComponent(0.5).cgColor
+        ]
+        bottomGradient.locations = [0.0, 1.0]
+        
+        // Insert at index 0 to be bottom-most layer
+        parentView.layer.insertSublayer(bottomGradient, at: 0)
+        bottomGradientLayer = bottomGradient
     }
     
     // MARK: - Public Methods
