@@ -28,12 +28,21 @@ final class ExerciseTutorialViewController: UIViewController {
         return view
     }()
     
-    private let videoPlaceholderView: UIView = {
-        let view = UIView()
-        view.backgroundColor = .darkGray
-        view.layer.cornerRadius = 12
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
+    private let videoPlaceholderView: UIImageView = {
+        let imageView = UIImageView()
+        // Try to load an asset named "squat_animation" (add the attached GIF or an image sequence
+        // to Assets.xcassets with this name). If it's present, it'll be used here. If not, we keep
+        // the dark placeholder background until the asset is added in Xcode.
+        if let anim = UIImage(named: "squat_animation") {
+            imageView.image = anim
+        } else {
+            imageView.backgroundColor = .darkGray
+        }
+        imageView.layer.cornerRadius = 12
+        imageView.clipsToBounds = true
+        imageView.contentMode = .scaleAspectFit
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        return imageView
     }()
     
     private let videoPlaceholderLabel: UILabel = {
@@ -48,7 +57,7 @@ final class ExerciseTutorialViewController: UIViewController {
     
     private let descriptionLabel: UILabel = {
         let label = UILabel()
-        label.text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
+        label.text = "Barbell back squats are a fundamental lower body exercise that primarily targets the quadriceps, hamstrings, glutes, and core muscles. It involves lowering your body by bending at the hips and knees while keeping a barbell balanced on your upper back, then returning to a standing position. Proper form is crucial to maximize effectiveness and prevent injury. Ideally, your shoulders should remain on top of your feet throughout the movement, with your knees tracking over your toes and your back maintaining a neutral position."
         label.font = .systemFont(ofSize: 16, weight: .regular)
         label.textColor = .white
         label.numberOfLines = 0
@@ -58,9 +67,16 @@ final class ExerciseTutorialViewController: UIViewController {
     
     private let figureImageView: UIImageView = {
         let imageView = UIImageView()
-        let config = UIImage.SymbolConfiguration(pointSize: 80, weight: .light)
-        imageView.image = UIImage(systemName: "figure.stand", withConfiguration: config)
-        imageView.tintColor = .white
+        // Prefer a bundled asset named "quadriceps_muscles" (add the attached image to Assets.xcassets
+        // with that name). If it's not available (e.g., running on Windows or before adding the asset),
+        // fall back to the system symbol.
+        if let bundled = UIImage(named: "quadriceps_muscles") {
+            imageView.image = bundled
+        } else {
+            let config = UIImage.SymbolConfiguration(pointSize: 80, weight: .light)
+            imageView.image = UIImage(systemName: "figure.stand", withConfiguration: config)
+            imageView.tintColor = .white
+        }
         imageView.contentMode = .scaleAspectFit
         imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
@@ -74,11 +90,27 @@ final class ExerciseTutorialViewController: UIViewController {
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
+    private let primaryMusclesListLabel: UILabel = {
+        let label = UILabel()
+        label.text = "Quadriceps, Hamstrings, Glutes"
+        label.font = .systemFont(ofSize: 14, weight: .medium)
+        label.textColor = .white
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
     
     private let secondaryMusclesLabel: UILabel = {
         let label = UILabel()
         label.text = "Secondary Muscles:"
         label.font = .systemFont(ofSize: 18, weight: .semibold)
+        label.textColor = .white
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    private let secondaryMusclesListLabel: UILabel = {
+        let label = UILabel()
+        label.text = "Adductors, Calves, Lower Back, Core"
+        label.font = .systemFont(ofSize: 14, weight: .medium)
         label.textColor = .white
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -124,7 +156,9 @@ final class ExerciseTutorialViewController: UIViewController {
         contentView.addSubview(descriptionLabel)
         contentView.addSubview(figureImageView)
         contentView.addSubview(primaryMusclesLabel)
+        contentView.addSubview(primaryMusclesListLabel)
         contentView.addSubview(secondaryMusclesLabel)
+        contentView.addSubview(secondaryMusclesListLabel)
         view.addSubview(understandButton)
         
         // Add button action
@@ -170,12 +204,22 @@ final class ExerciseTutorialViewController: UIViewController {
             primaryMusclesLabel.topAnchor.constraint(equalTo: figureImageView.bottomAnchor, constant: 24),
             primaryMusclesLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
             primaryMusclesLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
-            
-            // Secondary muscles label
-            secondaryMusclesLabel.topAnchor.constraint(equalTo: primaryMusclesLabel.bottomAnchor, constant: 16),
+
+            // Primary muscles list (right below primary label)
+            primaryMusclesListLabel.topAnchor.constraint(equalTo: primaryMusclesLabel.bottomAnchor, constant: 8),
+            primaryMusclesListLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
+            primaryMusclesListLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
+
+            // Secondary muscles label (placed after primary list with extra margin)
+            secondaryMusclesLabel.topAnchor.constraint(equalTo: primaryMusclesListLabel.bottomAnchor, constant: 16),
             secondaryMusclesLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
             secondaryMusclesLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
-            secondaryMusclesLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -24),
+
+            // Secondary muscles list (right below secondary label)
+            secondaryMusclesListLabel.topAnchor.constraint(equalTo: secondaryMusclesLabel.bottomAnchor, constant: 8),
+            secondaryMusclesListLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
+            secondaryMusclesListLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
+            secondaryMusclesListLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -24),
             
             // Understand button
             understandButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
