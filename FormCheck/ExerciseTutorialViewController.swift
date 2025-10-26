@@ -47,11 +47,12 @@ final class ExerciseTutorialViewController: UIViewController {
     
     private let videoPlaceholderLabel: UILabel = {
         let label = UILabel()
-        label.text = "Tutorial of ideal form"
+        label.text = "Loading video..."
         label.font = .systemFont(ofSize: 16, weight: .medium)
         label.textColor = .lightGray
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
+        label.isHidden = true // Hidden by default, shown only if video fails to load
         return label
     }()
     
@@ -268,6 +269,10 @@ final class ExerciseTutorialViewController: UIViewController {
         player?.pause()
         playerLayer?.removeFromSuperlayer()
         
+        // Hide label and set transparent background while loading
+        videoPlaceholderLabel.isHidden = true
+        videoPlaceholderView.backgroundColor = .clear
+        
         // Try to find the video file in the asset bundle
         if let asset = NSDataAsset(name: assetName) {
             // Save video data to temporary file
@@ -275,46 +280,58 @@ final class ExerciseTutorialViewController: UIViewController {
             do {
                 try asset.data.write(to: tempURL)
                 setupVideoPlayer(with: tempURL)
-                videoPlaceholderLabel.isHidden = true
+                print("✅ Video loaded successfully: \(assetName)")
             } catch {
-                print("Error writing video file: \(error)")
-                videoPlaceholderLabel.isHidden = false
+                print("❌ Error writing video file: \(error)")
+                showVideoError()
             }
         } else {
             // Fallback - try to load from bundle directly
             if let videoURL = Bundle.main.url(forResource: assetName, withExtension: "mp4") {
                 setupVideoPlayer(with: videoURL)
-                videoPlaceholderLabel.isHidden = true
+                print("✅ Video loaded from bundle: \(assetName)")
             } else {
-                print("Video asset not found: \(assetName)")
-                videoPlaceholderLabel.isHidden = false
+                print("❌ Video asset not found: \(assetName)")
+                showVideoError()
             }
         }
     }
     
+    private func showVideoError() {
+        videoPlaceholderView.backgroundColor = .darkGray
+        videoPlaceholderLabel.isHidden = false
+        videoPlaceholderLabel.text = "Video unavailable"
+    }
+    
     private func setupVideoPlayer(with url: URL) {
-        // Create player
-        player = AVPlayer(url: url)
+        // Create player item and player
+        let playerItem = AVPlayerItem(url: url)
+        player = AVPlayer(playerItem: playerItem)
         
         // Create player layer
         playerLayer = AVPlayerLayer(player: player)
         playerLayer?.frame = videoPlaceholderView.bounds
-        playerLayer?.videoGravity = .resizeAspect
+        playerLayer?.videoGravity = .resizeAspectFill
+        playerLayer?.backgroundColor = UIColor.clear.cgColor
         
         if let playerLayer = playerLayer {
+            // Remove any existing sublayers
+            videoPlaceholderView.layer.sublayers?.forEach { $0.removeFromSuperlayer() }
             videoPlaceholderView.layer.addSublayer(playerLayer)
         }
         
         // Setup looping
+        NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: nil)
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(playerDidFinishPlaying),
             name: .AVPlayerItemDidPlayToEndTime,
-            object: player?.currentItem
+            object: playerItem
         )
         
         // Start playing
         player?.play()
+        print("🎬 Video player started")
     }
     
     @objc private func playerDidFinishPlaying(notification: Notification) {
