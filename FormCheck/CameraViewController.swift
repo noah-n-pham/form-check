@@ -8,6 +8,10 @@ final class CameraViewController: UIViewController {
     private var frontCameraInput: AVCaptureDeviceInput?
     private var videoOutput: AVCaptureVideoDataOutput?
     private var previewLayer: AVCaptureVideoPreviewLayer?
+    
+    // MARK: - Frame Processing
+    private let videoDataOutputQueue = DispatchQueue(label: "com.formcheck.videoDataOutputQueue", qos: .userInitiated)
+    private var lastFrameTimestamp: CMTime = .zero
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -95,6 +99,9 @@ final class CameraViewController: UIViewController {
             
             captureSession.addInput(frontCameraInput)
             
+            // Configure camera for 15 FPS
+            try configureCameraFrameRate(camera: frontCamera, desiredFrameRate: 15)
+            
             // Setup video output
             videoOutput = AVCaptureVideoDataOutput()
             guard let videoOutput = videoOutput else {
@@ -102,7 +109,12 @@ final class CameraViewController: UIViewController {
                 return
             }
             
-            videoOutput.setSampleBufferDelegate(nil, queue: DispatchQueue.global(qos: .userInitiated))
+            // Configure video output settings
+            videoOutput.videoSettings = [
+                kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)
+            ]
+            videoOutput.alwaysDiscardsLateVideoFrames = true
+            videoOutput.setSampleBufferDelegate(self, queue: videoDataOutputQueue)
             
             if captureSession.canAddOutput(videoOutput) {
                 captureSession.addOutput(videoOutput)
@@ -142,5 +154,61 @@ final class CameraViewController: UIViewController {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             self?.captureSession.stopRunning()
         }
+    }
+    
+    // MARK: - Camera Configuration
+    private func configureCameraFrameRate(camera: AVCaptureDevice, desiredFrameRate: Int32) throws {
+        try camera.lockForConfiguration()
+        
+        // Find format that supports desired frame rate
+        for range in camera.activeFormat.videoSupportedFrameRateRanges {
+            if range.minFrameRate <= Double(desiredFrameRate) && Double(desiredFrameRate) <= range.maxFrameRate {
+                camera.activeVideoMinFrameDuration = CMTimeMake(value: 1, timescale: desiredFrameRate)
+                camera.activeVideoMaxFrameDuration = CMTimeMake(value: 1, timescale: desiredFrameRate)
+                print("✅ Camera configured for \(desiredFrameRate) FPS")
+                break
+            }
+        }
+        
+        camera.unlockForConfiguration()
+    }
+    
+    // MARK: - Frame Processing
+    private func processVideoFrame(sampleBuffer: CMSampleBuffer) {
+        // Extract CVPixelBuffer from CMSampleBuffer
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+            print("❌ Failed to get pixel buffer from sample buffer")
+            return
+        }
+        
+        // Get timestamp
+        let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        
+        // Calculate frame rate
+        if lastFrameTimestamp != .zero {
+            let timeDifference = CMTimeGetSeconds(timestamp) - CMTimeGetSeconds(lastFrameTimestamp)
+            let currentFPS = 1.0 / timeDifference
+            print("📹 Frame captured at timestamp: \(CMTimeGetSeconds(timestamp))s | FPS: \(String(format: "%.2f", currentFPS))")
+        } else {
+            print("📹 First frame captured at timestamp: \(CMTimeGetSeconds(timestamp))s")
+        }
+        
+        lastFrameTimestamp = timestamp
+        
+        // Pixel buffer is now available for further processing
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        print("📐 Frame dimensions: \(width)x\(height)")
+    }
+}
+
+// MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
+extension CameraViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        processVideoFrame(sampleBuffer: sampleBuffer)
+    }
+    
+    func captureOutput(_ output: AVCaptureOutput, didDrop sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        print("⚠️ Frame dropped")
     }
 }
