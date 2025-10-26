@@ -30,6 +30,10 @@ final class RepCounter {
     /// Track if form was good during the squat
     private var wasFormGoodDuringSquat: Bool = true
     
+    /// Count frames with good vs bad form during .inSquat
+    private var goodFormFrames: Int = 0
+    private var badFormFrames: Int = 0
+    
     /// Track if user actually went through inSquat phase (prevents false counts)
     private var wentThroughSquatPhase: Bool = false
     
@@ -52,11 +56,13 @@ final class RepCounter {
         if currentState == .inSquat {
             wentThroughSquatPhase = true
             
-            // Track form quality during squat phase
-            // If form is bad at ANY point during inSquat, mark entire rep as bad
-            if !result.isGoodForm {
-                wasFormGoodDuringSquat = false
-                print("📊 Rep Tracker: Form is BAD during squat - will count as bad rep")
+            // Track form quality during squat phase using majority voting
+            // Count frames with good vs bad form
+            if result.isGoodForm {
+                goodFormFrames += 1
+            } else {
+                badFormFrames += 1
+                print("📊 Rep Tracker: BAD form frame detected (\(badFormFrames) bad vs \(goodFormFrames) good so far)")
             }
         }
         
@@ -66,13 +72,20 @@ final class RepCounter {
                 // FULL REP: Reached proper depth
                 totalReps += 1
                 
-                // Categorize based on form quality
-                if wasFormGoodDuringSquat {
+                // Determine form quality using majority voting (>50% good frames = good rep)
+                // This prevents temporary flickering from ruining an otherwise good rep
+                let totalFormFrames = goodFormFrames + badFormFrames
+                let goodFormPercentage = totalFormFrames > 0 ? Double(goodFormFrames) / Double(totalFormFrames) * 100.0 : 100.0
+                
+                // Require >50% of frames to have good form
+                let repIsGoodForm = goodFormPercentage > 50.0
+                
+                if repIsGoodForm {
                     goodFormReps += 1
-                    print("✅ FULL REP COUNTED: #\(totalReps) - GOOD FORM")
+                    print("✅ FULL REP COUNTED: #\(totalReps) - GOOD FORM (\(String(format: "%.0f", goodFormPercentage))% good frames: \(goodFormFrames)/\(totalFormFrames))")
                 } else {
                     badFormReps += 1
-                    print("❌ FULL REP COUNTED: #\(totalReps) - BAD FORM")
+                    print("❌ FULL REP COUNTED: #\(totalReps) - BAD FORM (\(String(format: "%.0f", goodFormPercentage))% good frames: \(goodFormFrames)/\(totalFormFrames))")
                 }
                 
                 let totalAttempts = totalReps + partialReps
@@ -90,6 +103,8 @@ final class RepCounter {
             wasFormGoodDuringSquat = true
             wentThroughSquatPhase = false
             attemptedSquatMovement = false
+            goodFormFrames = 0
+            badFormFrames = 0
         }
         
         // Reset tracking when starting new descent
@@ -97,6 +112,8 @@ final class RepCounter {
             wasFormGoodDuringSquat = true
             wentThroughSquatPhase = false
             attemptedSquatMovement = true
+            goodFormFrames = 0
+            badFormFrames = 0
             print("🔄 Starting new squat attempt")
         }
         
@@ -105,12 +122,14 @@ final class RepCounter {
     
     /// Get current rep count data
     /// - Returns: RepCountData with current statistics
+    /// NOTE: This is legacy code - use FormQualityTracker instead
     func getCurrentData() -> RepCountData {
+        let avgQuality = totalReps > 0 ? Int((Double(goodFormReps) / Double(totalReps)) * 100) : 0
         return RepCountData(
             totalReps: totalReps,
-            goodFormReps: goodFormReps,
-            badFormReps: badFormReps,
-            partialReps: partialReps
+            averageFormQuality: avgQuality,
+            lastRepQuality: nil,
+            lastRepCues: []
         )
     }
     
@@ -124,6 +143,8 @@ final class RepCounter {
         wasFormGoodDuringSquat = true
         wentThroughSquatPhase = false
         attemptedSquatMovement = false
+        goodFormFrames = 0
+        badFormFrames = 0
         print("🔄 Rep counter reset")
     }
 }

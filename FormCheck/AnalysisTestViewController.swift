@@ -247,23 +247,30 @@ final class AnalysisTestViewController: UIViewController {
             kneeAngleLabel.text = "Knee Angle: N/A"
         }
         
-        // Update form
-        if result.isGoodForm {
-            formLabel.text = "Form: Good ✓"
+        // Update form quality rating
+        if result.formQuality >= 85 {
+            formLabel.text = "Quality: \(result.formQuality) ✓"
             formLabel.textColor = .systemGreen
+        } else if result.formQuality >= 70 {
+            formLabel.text = "Quality: \(result.formQuality) ⚠️"
+            formLabel.textColor = .systemYellow
         } else {
-            formLabel.text = "Form: Bad ✗"
+            formLabel.text = "Quality: \(result.formQuality) ✗"
             formLabel.textColor = .systemRed
         }
         
-        // Update issue
-        issueLabel.text = "Issue: \(result.primaryIssue ?? "None")"
+        // Update coaching cues
+        if result.coachingCues.isEmpty {
+            issueLabel.text = "Cues: None"
+        } else {
+            issueLabel.text = "Cues: \(result.coachingCues.joined(separator: ", "))"
+        }
         
         // Update rep counts
         let repData = repCounter.getCurrentData()
         repsLabel.text = "Total Reps: \(repData.totalReps)"
-        goodRepsLabel.text = "Good Form: \(repData.goodFormReps)"
-        badRepsLabel.text = "Bad Form: \(repData.badFormReps)"
+        goodRepsLabel.text = "Avg Quality: \(repData.averageFormQuality)"
+        badRepsLabel.text = "Last Rep: \(repData.lastRepQuality ?? 0)"
     }
 }
 

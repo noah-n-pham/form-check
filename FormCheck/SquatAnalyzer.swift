@@ -65,10 +65,13 @@ final class SquatAnalyzer {
         guard let filteredData = sideSelector.selectBestSide(from: poseData) else {
             // No good side available
             return FormAnalysisResult(
-                isGoodForm: false,
-                primaryIssue: "Unable to analyze: Poor joint detection quality",
+                formQuality: 0,
                 kneeAngle: nil,
-                squatState: currentState
+                kneeForwardPercent: nil,
+                backAngle: nil,
+                squatState: currentState,
+                coachingCues: ["POSITION BODY"],
+                scoreBreakdown: "Poor joint detection"
             )
         }
         
@@ -90,10 +93,12 @@ final class SquatAnalyzer {
             // Not in squat position, return default result
             print("⏭️  State: \(squatState) - Skipping form analysis (only runs in .inSquat)")
             return FormAnalysisResult(
-                isGoodForm: true,
-                primaryIssue: nil,
+                formQuality: 100,
                 kneeAngle: nil,
-                squatState: squatState
+                kneeForwardPercent: nil,
+                backAngle: nil,
+                squatState: squatState,
+                coachingCues: []
             )
         }
     }
@@ -274,6 +279,7 @@ final class SquatAnalyzer {
     
     /// Analyze form while in squat position
     /// Uses pre-filtered data with best quality side
+    /// Returns a science-based form quality rating (0-100)
     private func analyzeFormInSquat(filteredData: FilteredPoseData, state: SquatState) -> FormAnalysisResult {
         let finalShoulder = filteredData.shoulder
         let finalHip = filteredData.hip
@@ -281,89 +287,114 @@ final class SquatAnalyzer {
         let finalAnkle = filteredData.ankle
         
         print("📐 Analyzing form using \(filteredData.side == .left ? "LEFT" : "RIGHT") side (conf: \(String(format: "%.2f", filteredData.averageConfidence)))")
+        print("   ═══════════════════════════════════")
         
-        // Calculate knee angle using the visible side
+        // Start with perfect score
+        var formScore = 100
+        var coachingCues: [String] = []
+        var scoreBreakdown: [String] = []
+        
+        // 1. KNEE ANGLE (40 points max) - Most critical for depth
         let kneeAngle = AngleCalculator.calculateAngle(
             pointA: finalHip,
             vertex: finalKnee,
             pointC: finalAnkle
         )
         
-        print("   Knee Angle: \(String(format: "%.1f°", kneeAngle))")
+        let optimalKneeMin = FormCheckConstants.GOOD_KNEE_ANGLE_MIN  // 70°
+        let optimalKneeMax = FormCheckConstants.GOOD_KNEE_ANGLE_MAX  // 95°
+        let kneeAngleDeduction: Int
         
-        // Check knee angle (priority 1) - scientifically correct range for full squat
-        let isGoodKneeAngle = AngleCalculator.isAngleInRange(
-            kneeAngle,
-            min: FormCheckConstants.GOOD_KNEE_ANGLE_MIN,
-            max: FormCheckConstants.GOOD_KNEE_ANGLE_MAX
-        )
-        
-        print("   Knee Angle Good: \(isGoodKneeAngle) (range: \(FormCheckConstants.GOOD_KNEE_ANGLE_MIN)-\(FormCheckConstants.GOOD_KNEE_ANGLE_MAX)°)")
-        
-        // Check knee forward position (priority 2)
-        // Knee should not go too far past ankle
-        let kneeForward = abs(finalKnee.x - finalAnkle.x)
-        let isGoodKneePosition = kneeForward <= FormCheckConstants.KNEE_FORWARD_THRESHOLD
-        
-        print("   Knee Forward: \(Int(kneeForward))px (threshold: \(Int(FormCheckConstants.KNEE_FORWARD_THRESHOLD))px), Good: \(isGoodKneePosition)")
-        
-        // Check back angle (priority 3)
-        // Back should not lean too far forward
-        let backAngle = AngleCalculator.angleFromVertical(point1: finalShoulder, point2: finalHip)
-        let isGoodBackAngle = backAngle <= FormCheckConstants.BACK_ANGLE_THRESHOLD
-        
-        print("   Back Angle: \(String(format: "%.1f°", backAngle)) from vertical (threshold: \(FormCheckConstants.BACK_ANGLE_THRESHOLD)°), Good: \(isGoodBackAngle)")
-        
-        // Determine if form is good and collect ALL issues
-        let isGoodForm = isGoodKneeAngle && isGoodKneePosition && isGoodBackAngle
-        
-        var allIssues: [String] = []
-        var primaryIssue: String?
-        
-        // Check each form criterion and add specific feedback
-        if !isGoodKneeAngle {
-            let kneeIssue: String
-            if kneeAngle < FormCheckConstants.GOOD_KNEE_ANGLE_MIN {
-                kneeIssue = "Going too deep"
-            } else {
-                kneeIssue = "Not deep enough"
+        if kneeAngle < optimalKneeMin {
+            // Too deep - minor issue
+            let deviation = optimalKneeMin - kneeAngle
+            kneeAngleDeduction = min(Int(deviation / 2.0), 15)  // Max 15 points off for going too deep
+            if kneeAngleDeduction > 5 {
+                coachingCues.append("LESS DEPTH")
             }
-            allIssues.append(kneeIssue)
-            if primaryIssue == nil {
-                primaryIssue = kneeIssue  // First issue becomes primary
+            scoreBreakdown.append("Knee angle too deep: -\(kneeAngleDeduction)")
+        } else if kneeAngle > optimalKneeMax {
+            // Not deep enough - major issue
+            let deviation = kneeAngle - optimalKneeMax
+            kneeAngleDeduction = min(Int(deviation / 1.0), 40)  // Max 40 points off for shallow squat
+            if kneeAngleDeduction > 5 {
+                coachingCues.append("GO DEEPER")
             }
-        }
-        
-        if !isGoodKneePosition {
-            let kneePositionIssue = "Knees too far forward"
-            allIssues.append(kneePositionIssue)
-            if primaryIssue == nil {
-                primaryIssue = kneePositionIssue
-            }
-        }
-        
-        if !isGoodBackAngle {
-            let backIssue = "Keep back more upright"
-            allIssues.append(backIssue)
-            if primaryIssue == nil {
-                primaryIssue = backIssue
-            }
-        }
-        
-        // Logging
-        if isGoodForm {
-            print("   Overall Form: ✅ GOOD - All checks passed!")
+            scoreBreakdown.append("Insufficient depth: -\(kneeAngleDeduction)")
         } else {
-            print("   Overall Form: ❌ BAD")
-            print("   Issues Detected: \(allIssues.joined(separator: " | "))")
+            // Perfect range
+            kneeAngleDeduction = 0
+            scoreBreakdown.append("Knee angle optimal: 0")
         }
+        formScore -= kneeAngleDeduction
+        
+        print("   📐 Knee Angle: \(String(format: "%.1f°", kneeAngle)) | Deduction: -\(kneeAngleDeduction) pts")
+        
+        // 2. KNEE FORWARD POSITION (30 points max)
+        let shinLength = abs(finalAnkle.y - finalKnee.y)
+        let kneeForwardAbsolute = abs(finalKnee.x - finalAnkle.x)
+        let kneeForwardPercent = shinLength > 0 ? (kneeForwardAbsolute / shinLength) * 100.0 : 0.0
+        
+        let optimalKneeForward = FormCheckConstants.KNEE_FORWARD_THRESHOLD_PERCENT  // 45%
+        let kneeForwardDeduction: Int
+        
+        if kneeForwardPercent > optimalKneeForward {
+            // Too far forward
+            let deviation = kneeForwardPercent - optimalKneeForward
+            kneeForwardDeduction = min(Int(deviation / 1.0), 30)  // Max 30 points off
+            if kneeForwardDeduction > 10 {
+                coachingCues.append("KNEES BACK")
+            }
+            scoreBreakdown.append("Knees too forward: -\(kneeForwardDeduction)")
+        } else {
+            // Within acceptable range
+            kneeForwardDeduction = 0
+            scoreBreakdown.append("Knee position optimal: 0")
+        }
+        formScore -= kneeForwardDeduction
+        
+        print("   📍 Knee Forward: \(String(format: "%.1f", kneeForwardPercent))% of shin | Deduction: -\(kneeForwardDeduction) pts")
+        
+        // 3. BACK ANGLE (30 points max)
+        let backAngle = AngleCalculator.angleFromVertical(point1: finalShoulder, point2: finalHip)
+        let optimalBackAngle = FormCheckConstants.BACK_ANGLE_THRESHOLD  // 50°
+        let backAngleDeduction: Int
+        
+        if backAngle > optimalBackAngle {
+            // Leaning too far forward
+            let deviation = backAngle - optimalBackAngle
+            backAngleDeduction = min(Int(deviation / 1.0), 30)  // Max 30 points off
+            if backAngleDeduction > 10 {
+                coachingCues.append("CHEST UP")
+            }
+            scoreBreakdown.append("Excessive forward lean: -\(backAngleDeduction)")
+        } else {
+            // Good upright position
+            backAngleDeduction = 0
+            scoreBreakdown.append("Back angle optimal: 0")
+        }
+        formScore -= backAngleDeduction
+        
+        print("   📏 Back Angle: \(String(format: "%.1f°", backAngle)) | Deduction: -\(backAngleDeduction) pts")
+        
+        // Ensure score stays in 0-100 range
+        formScore = max(0, min(100, formScore))
+        
+        print("   ═══════════════════════════════════")
+        print("   🎯 FORM QUALITY: \(formScore)/100")
+        if !coachingCues.isEmpty {
+            print("   📋 Coaching: \(coachingCues.joined(separator: ", "))")
+        }
+        print("   ═══════════════════════════════════")
         
         return FormAnalysisResult(
-            isGoodForm: isGoodForm,
-            primaryIssue: primaryIssue,
-            allIssues: allIssues,
+            formQuality: formScore,
             kneeAngle: kneeAngle,
-            squatState: state
+            kneeForwardPercent: kneeForwardPercent,
+            backAngle: backAngle,
+            squatState: state,
+            coachingCues: coachingCues,
+            scoreBreakdown: scoreBreakdown.joined(separator: " | ")
         )
     }
     

@@ -54,12 +54,12 @@ class SquatAnalyzerTests {
         )
         result = analyzer.analyzeSquat(poseData: mockInSquatGood)
         print("State: \(result.squatState)")
-        print("Good form: \(result.isGoodForm)")
-        print("Primary issue: \(result.primaryIssue ?? "None")")
+        print("Form quality: \(result.formQuality)/100")
+        print("Coaching cues: \(result.coachingCues.joined(separator: ", "))")
         print("Knee angle: \(result.kneeAngle?.description ?? "N/A")")
         
         // Test 3: Bad knee angle
-        print("\nTest 3: Bad knee angle (too small)")
+        print("\nTest 3: Bad knee angle (too deep)")
         let mockBadKneeAngle = createMockPoseData(
             hipY: 450,
             kneeY: 400,
@@ -68,15 +68,15 @@ class SquatAnalyzerTests {
             ankleX: 200,
             shoulderY: 150,
             hipX: 200,
-            kneeAngleDegrees: 45.0  // Too small
+            kneeAngleDegrees: 45.0  // Too deep
         )
         result = analyzer.analyzeSquat(poseData: mockBadKneeAngle)
         print("State: \(result.squatState)")
-        print("Good form: \(result.isGoodForm)")
-        print("Primary issue: \(result.primaryIssue ?? "None")")
+        print("Form quality: \(result.formQuality)/100")
+        print("Coaching cues: \(result.coachingCues.joined(separator: ", "))")
         print("Knee angle: \(result.kneeAngle?.description ?? "N/A")")
-        assert(result.isGoodForm == false)
-        assert(result.primaryIssue?.contains("Knee") ?? false)
+        assert(result.formQuality < 100, "Should have deductions for too deep")
+        assert(result.coachingCues.contains { $0.contains("DEPTH") }, "Should have depth-related cue")
         
         // Test 4: Knees too far forward
         print("\nTest 4: Knees too far forward")
@@ -92,11 +92,11 @@ class SquatAnalyzerTests {
         )
         result = analyzer.analyzeSquat(poseData: mockKneesForward)
         print("State: \(result.squatState)")
-        print("Good form: \(result.isGoodForm)")
-        print("Primary issue: \(result.primaryIssue ?? "None")")
+        print("Form quality: \(result.formQuality)/100")
+        print("Coaching cues: \(result.coachingCues.joined(separator: ", "))")
         print("Knee angle: \(result.kneeAngle?.description ?? "N/A")")
-        assert(result.isGoodForm == false)
-        assert(result.primaryIssue?.contains("forward") ?? false)
+        assert(result.formQuality < 100, "Should have deductions for knees forward")
+        assert(result.coachingCues.contains { $0.contains("KNEES") || $0.contains("BACK") }, "Should have knee-related cue")
         
         print("\n" + "=" * 50)
         print("All tests completed successfully!")

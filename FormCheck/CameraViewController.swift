@@ -35,7 +35,7 @@ final class CameraViewController: UIViewController {
     // MARK: - Form Analysis Components (Developer B)
     
     private let squatAnalyzer = SquatAnalyzer()
-    private let repCounter = RepCounter()
+    private let formQualityTracker = FormQualityTracker()
     private let sideSelector = SideSelector()
     
     // MARK: - Visual Components (Developer A)
@@ -47,6 +47,51 @@ final class CameraViewController: UIViewController {
         let view = PositioningGuideView()
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
+    }()
+    
+    // MARK: - Form Quality UI
+    
+    private let formQualityLabel: UILabel = {
+        let label = UILabel()
+        label.font = .monospacedDigitSystemFont(ofSize: 72, weight: .bold)
+        label.textColor = .white
+        label.textAlignment = .center
+        label.text = "—"
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.layer.shadowColor = UIColor.black.cgColor
+        label.layer.shadowOffset = CGSize(width: 0, height: 2)
+        label.layer.shadowOpacity = 0.8
+        label.layer.shadowRadius = 4
+        return label
+    }()
+    
+    private let coachingCuesLabel: UILabel = {
+        let label = UILabel()
+        label.font = .systemFont(ofSize: 24, weight: .heavy)
+        label.textColor = .systemYellow
+        label.textAlignment = .center
+        label.numberOfLines = 0
+        label.text = ""
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.layer.shadowColor = UIColor.black.cgColor
+        label.layer.shadowOffset = CGSize(width: 0, height: 2)
+        label.layer.shadowOpacity = 0.8
+        label.layer.shadowRadius = 4
+        return label
+    }()
+    
+    private let repCountLabel: UILabel = {
+        let label = UILabel()
+        label.font = .systemFont(ofSize: 20, weight: .semibold)
+        label.textColor = .white
+        label.textAlignment = .right
+        label.text = "REPS: 0"
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.layer.shadowColor = UIColor.black.cgColor
+        label.layer.shadowOffset = CGSize(width: 0, height: 1)
+        label.layer.shadowOpacity = 0.6
+        label.layer.shadowRadius = 2
+        return label
     }()
     
     // MARK: - State Tracking
@@ -107,6 +152,30 @@ final class CameraViewController: UIViewController {
             positioningGuideView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             positioningGuideView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             positioningGuideView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+        
+        // Add form quality rating label (center)
+        view.addSubview(formQualityLabel)
+        NSLayoutConstraint.activate([
+            formQualityLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            formQualityLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        ])
+        formQualityLabel.alpha = 0  // Hidden until rep completes
+        
+        // Add coaching cues label (below center)
+        view.addSubview(coachingCuesLabel)
+        NSLayoutConstraint.activate([
+            coachingCuesLabel.topAnchor.constraint(equalTo: formQualityLabel.bottomAnchor, constant: 20),
+            coachingCuesLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 40),
+            coachingCuesLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -40)
+        ])
+        coachingCuesLabel.alpha = 0  // Hidden until rep completes
+        
+        // Add rep count label (top right)
+        view.addSubview(repCountLabel)
+        NSLayoutConstraint.activate([
+            repCountLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            repCountLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20)
         ])
     }
     
@@ -183,24 +252,21 @@ extension CameraViewController: PoseDataDelegate {
         let formResult = squatAnalyzer.analyzeSquat(poseData: data)
         currentFormResult = formResult
         
-        // 2. Pass FormAnalysisResult to repCounter.updateWithAnalysis()
-        repCounter.updateWithAnalysis(formResult)
-        currentRepData = repCounter.getCurrentData()
-        
-        // 3. Print to console (only on state changes or every 1 second)
-        let stateChanged = previousState != formResult.squatState
-        let currentTime = Date()
-        let shouldLogSummary = currentTime.timeIntervalSince(lastSummaryLogTime) >= summaryLogInterval
-        
-        if stateChanged {
-            // Always log state changes immediately
-            printAnalysisToConsole(formResult: formResult, repData: currentRepData!)
-        } else if shouldLogSummary {
-            // Periodic update every 1 second
-            printAnalysisToConsole(formResult: formResult, repData: currentRepData!)
-            lastSummaryLogTime = currentTime
-        }
+        // Store previous state for rep completion detection
+        let wasAscending = previousState == .ascending
         previousState = formResult.squatState
+        
+        // 2. Pass FormAnalysisResult to formQualityTracker.updateWithAnalysis()
+        formQualityTracker.updateWithAnalysis(formResult)
+        currentRepData = formQualityTracker.getCurrentData()
+        
+        // 3. Update UI with live data
+        updateUI(formResult: formResult, repData: currentRepData!)
+        
+        // 4. Show rep completion feedback
+        if wasAscending && formResult.squatState == .standing {
+            showRepCompletionFeedback(repData: currentRepData!)
+        }
         
         // 4. Update SkeletonRenderer color based on isGoodForm
         // Use side locking (pass squat state) to prevent mid-rep switching
@@ -258,48 +324,49 @@ extension CameraViewController: PoseDataDelegate {
         return PoseData(jointPositions: jointPositions, confidences: confidences)
     }
     
-    /// Print form analysis results to console
-    private func printAnalysisToConsole(formResult: FormAnalysisResult, repData: RepCountData) {
-        // Format state
-        let stateText: String
-        switch formResult.squatState {
-        case .standing: stateText = "Standing"
-        case .descending: stateText = "Descending ⬇️"
-        case .inSquat: stateText = "In Squat 🏋️"
-        case .ascending: stateText = "Ascending ⬆️"
+    // MARK: - UI Updates
+    
+    private func updateUI(formResult: FormAnalysisResult, repData: RepCountData) {
+        // Update rep count
+        repCountLabel.text = "REPS: \(repData.totalReps)"
+    }
+    
+    private func showRepCompletionFeedback(repData: RepCountData) {
+        guard let quality = repData.lastRepQuality else { return }
+        
+        // Set quality score
+        formQualityLabel.text = "\(quality)"
+        
+        // Color code based on quality
+        if quality >= 85 {
+            formQualityLabel.textColor = .systemGreen
+        } else if quality >= 70 {
+            formQualityLabel.textColor = .systemYellow
+        } else {
+            formQualityLabel.textColor = .systemRed
         }
         
-        // Format form assessment
-        let formText = formResult.isGoodForm ? "✅ GOOD" : "❌ BAD"
-        
-        // Format knee angle
-        let kneeAngleText = formResult.kneeAngle.map { String(format: "%.1f°", $0) } ?? "N/A"
-        
-        // Format rep counts with partial reps
-        let fullRepsText = "\(repData.totalReps) full (✅ \(repData.goodFormReps) good, ❌ \(repData.badFormReps) bad)"
-        let partialRepsText = repData.partialReps > 0 ? ", ⚠️  \(repData.partialReps) partial" : ""
-        let totalAttemptsText = "Total: \(repData.totalAttempts)"
-        let repsText = "\(totalAttemptsText) | \(fullRepsText)\(partialRepsText)"
-        
-        // Format feedback message (shows all issues or "Good form!")
-        let feedbackText = formResult.feedbackMessage
-        
-        // Print comprehensive log
-        print("""
-        🎯 Form Analysis:
-           State: \(stateText)
-           Form: \(formText)
-           Knee Angle: \(kneeAngleText)
-           Feedback: \(feedbackText)
-           Reps: \(repsText)
-        """)
-        
-        // Show detailed issue breakdown if multiple issues
-        if !formResult.allIssues.isEmpty && formResult.allIssues.count > 1 {
-            print("   ⚠️  Multiple Issues:")
-            for (index, issue) in formResult.allIssues.enumerated() {
-                print("      \(index + 1). \(issue)")
-            }
+        // Set coaching cues
+        if repData.lastRepCues.isEmpty {
+            coachingCuesLabel.text = ""
+            coachingCuesLabel.alpha = 0
+        } else {
+            coachingCuesLabel.text = repData.lastRepCues.joined(separator: "\n")
+            coachingCuesLabel.alpha = 1
         }
+        
+        // Animate in
+        formQualityLabel.alpha = 1
+        formQualityLabel.transform = CGAffineTransform(scaleX: 0.5, y: 0.5)
+        
+        UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 0.5, options: [], animations: {
+            self.formQualityLabel.transform = .identity
+        })
+        
+        // Animate out after 2.5 seconds
+        UIView.animate(withDuration: 0.5, delay: 2.5, options: [], animations: {
+            self.formQualityLabel.alpha = 0
+            self.coachingCuesLabel.alpha = 0
+        })
     }
 }

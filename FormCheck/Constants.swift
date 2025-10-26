@@ -15,20 +15,30 @@ struct FormCheckConstants {
     // MARK: - Knee Angle Thresholds
     
     /// Minimum knee angle (degrees) for good squat form at bottom position
-    static let GOOD_KNEE_ANGLE_MIN = 80.0
+    /// This is the interior angle at the knee (hip-knee-ankle)
+    /// 90° = parallel (thighs parallel to ground)
+    /// 70° = below parallel (deep squat)
+    static let GOOD_KNEE_ANGLE_MIN = 70.0
     
     /// Maximum knee angle (degrees) for good squat form at bottom position
-    static let GOOD_KNEE_ANGLE_MAX = 100.0
+    /// Must reach at least parallel depth to be considered a proper squat
+    /// 95° = at-parallel depth (proper squat standard)
+    /// Angles above 95° indicate quarter squats (improper depth)
+    static let GOOD_KNEE_ANGLE_MAX = 95.0
     
-    // MARK: - Positional Thresholds
+    // MARK: - Positional Thresholds (Normalized by Body Proportions)
     
-    /// Maximum allowed knee forward position beyond ankle (pixels)
-    /// If knee X-position exceeds ankle X-position by more than this, form is bad
-    static let KNEE_FORWARD_THRESHOLD = 30.0
+    /// Maximum allowed knee forward position as percentage of shin length
+    /// Measured as (knee_forward_distance / shin_length) × 100
+    /// ~45% of shin length allows natural forward travel in proper squats
+    /// This scales automatically with user height and camera distance
+    /// Note: Knees going forward is NATURAL in squats - this threshold allows proper form
+    static let KNEE_FORWARD_THRESHOLD_PERCENT = 45.0
     
     /// Maximum allowed back angle from vertical (degrees)
     /// Shoulder-hip angle from vertical should not exceed this
-    static let BACK_ANGLE_THRESHOLD = 60.0
+    /// For barbell back squats, some forward lean is natural and acceptable
+    static let BACK_ANGLE_THRESHOLD = 50.0
     
     // MARK: - Detection Thresholds
     
