@@ -6,9 +6,9 @@
 //
 
 import UIKit
-import ImageIO
 import AVFoundation
 import AVKit
+import ImageIO
 
 /// Tutorial screen showing exercise information and proper form
 final class ExerciseTutorialViewController: UIViewController {
@@ -19,6 +19,7 @@ final class ExerciseTutorialViewController: UIViewController {
     private var exerciseName: String {
         return exercise?.name ?? "Exercise"
     }
+    
     private var player: AVPlayer?
     private var playerLayer: AVPlayerLayer?
     
@@ -36,24 +37,13 @@ final class ExerciseTutorialViewController: UIViewController {
         return view
     }()
     
-    private let videoPlaceholderView: UIView = {
+    private let videoContainerView: UIView = {
         let view = UIView()
-        view.backgroundColor = .darkGray
+        view.backgroundColor = .black
         view.layer.cornerRadius = 12
         view.clipsToBounds = true
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
-    }()
-    
-    private let videoPlaceholderLabel: UILabel = {
-        let label = UILabel()
-        label.text = "Loading video..."
-        label.font = .systemFont(ofSize: 16, weight: .medium)
-        label.textColor = .lightGray
-        label.textAlignment = .center
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.isHidden = true // Hidden by default, shown only if video fails to load
-        return label
     }()
     
     private let descriptionLabel: UILabel = {
@@ -82,6 +72,7 @@ final class ExerciseTutorialViewController: UIViewController {
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
+    
     private let primaryMusclesListLabel: UILabel = {
         let label = UILabel()
         label.text = ""
@@ -99,6 +90,7 @@ final class ExerciseTutorialViewController: UIViewController {
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
+    
     private let secondaryMusclesListLabel: UILabel = {
         let label = UILabel()
         label.text = ""
@@ -125,6 +117,26 @@ final class ExerciseTutorialViewController: UIViewController {
         super.viewDidLoad()
         setupUI()
         updateContent()
+        setupVideoPlayer()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        player?.play()
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        player?.pause()
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        // Update player layer frame when container size changes
+        if let playerLayer = playerLayer, playerLayer.frame != videoContainerView.bounds {
+            playerLayer.frame = videoContainerView.bounds
+            print("🔄 Player layer frame updated to: \(videoContainerView.bounds)")
+        }
     }
     
     // MARK: - Setup
@@ -144,8 +156,7 @@ final class ExerciseTutorialViewController: UIViewController {
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
         
-        contentView.addSubview(videoPlaceholderView)
-        videoPlaceholderView.addSubview(videoPlaceholderLabel)
+        contentView.addSubview(videoContainerView)
         contentView.addSubview(descriptionLabel)
         contentView.addSubview(figureImageView)
         contentView.addSubview(primaryMusclesLabel)
@@ -172,18 +183,14 @@ final class ExerciseTutorialViewController: UIViewController {
             contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
             contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
             
-            // Video placeholder
-            videoPlaceholderView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 24),
-            videoPlaceholderView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
-            videoPlaceholderView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
-            videoPlaceholderView.heightAnchor.constraint(equalToConstant: 200),
-            
-            // Video placeholder label
-            videoPlaceholderLabel.centerXAnchor.constraint(equalTo: videoPlaceholderView.centerXAnchor),
-            videoPlaceholderLabel.centerYAnchor.constraint(equalTo: videoPlaceholderView.centerYAnchor),
+            // Video container
+            videoContainerView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 24),
+            videoContainerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
+            videoContainerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
+            videoContainerView.heightAnchor.constraint(equalToConstant: 200),
             
             // Description label
-            descriptionLabel.topAnchor.constraint(equalTo: videoPlaceholderView.bottomAnchor, constant: 24),
+            descriptionLabel.topAnchor.constraint(equalTo: videoContainerView.bottomAnchor, constant: 24),
             descriptionLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
             descriptionLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
             
@@ -198,17 +205,17 @@ final class ExerciseTutorialViewController: UIViewController {
             primaryMusclesLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
             primaryMusclesLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
 
-            // Primary muscles list (right below primary label)
+            // Primary muscles list
             primaryMusclesListLabel.topAnchor.constraint(equalTo: primaryMusclesLabel.bottomAnchor, constant: 8),
             primaryMusclesListLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
             primaryMusclesListLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
 
-            // Secondary muscles label (placed after primary list with extra margin)
+            // Secondary muscles label
             secondaryMusclesLabel.topAnchor.constraint(equalTo: primaryMusclesListLabel.bottomAnchor, constant: 16),
             secondaryMusclesLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
             secondaryMusclesLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
 
-            // Secondary muscles list (right below secondary label)
+            // Secondary muscles list
             secondaryMusclesListLabel.topAnchor.constraint(equalTo: secondaryMusclesLabel.bottomAnchor, constant: 8),
             secondaryMusclesListLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
             secondaryMusclesListLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
@@ -220,6 +227,71 @@ final class ExerciseTutorialViewController: UIViewController {
             understandButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
             understandButton.heightAnchor.constraint(equalToConstant: 56)
         ])
+    }
+    
+    // MARK: - Video Setup
+    
+    private func setupVideoPlayer() {
+        // Use the video asset name from the exercise model
+        guard let exercise = exercise else {
+            print("❌ No exercise data available")
+            return
+        }
+        
+        let videoAssetName = exercise.animationAssetName
+        
+        // Load video from asset catalog
+        guard let videoAsset = NSDataAsset(name: videoAssetName) else {
+            print("❌ Could not load video asset: \(videoAssetName)")
+            return
+        }
+        
+        // Create temporary file URL
+        let tempDirectory = FileManager.default.temporaryDirectory
+        let videoURL = tempDirectory.appendingPathComponent("\(videoAssetName).mp4")
+        
+        do {
+            // Write video data to temp file
+            try videoAsset.data.write(to: videoURL)
+            
+            // Create player item and player
+            let playerItem = AVPlayerItem(url: videoURL)
+            player = AVPlayer(playerItem: playerItem)
+            
+            // Create player layer
+            playerLayer = AVPlayerLayer(player: player)
+            playerLayer?.videoGravity = .resizeAspectFill
+            playerLayer?.backgroundColor = UIColor.clear.cgColor
+            
+            if let playerLayer = playerLayer {
+                videoContainerView.layer.addSublayer(playerLayer)
+            }
+            
+            // Observe player item status to start playing when ready
+            playerItem.addObserver(self, forKeyPath: "status", options: [.new, .initial], context: nil)
+            
+            // Set frame after adding to layer hierarchy
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                self.playerLayer?.frame = self.videoContainerView.bounds
+                print("📐 Player layer frame set to: \(self.videoContainerView.bounds)")
+            }
+            
+            // Loop video
+            NotificationCenter.default.addObserver(
+                forName: .AVPlayerItemDidPlayToEndTime,
+                object: player?.currentItem,
+                queue: .main
+            ) { [weak self] _ in
+                self?.player?.seek(to: .zero)
+                self?.player?.play()
+            }
+            
+            print("✅ Video loaded successfully: \(videoAssetName)")
+            
+        } catch {
+            print("❌ Error loading video: \(error.localizedDescription)")
+        }
     }
     
     // MARK: - Update Content
@@ -257,106 +329,9 @@ final class ExerciseTutorialViewController: UIViewController {
             figureImageView.image = UIImage(systemName: "figure.stand", withConfiguration: config)
             figureImageView.tintColor = .white
         }
-        
-        // Update animation/video placeholder - Load MP4 video
-        loadVideo(named: exercise.animationAssetName)
     }
     
     // MARK: - Helper Methods
-    
-    private func loadVideo(named assetName: String) {
-        // Clean up previous player if exists
-        player?.pause()
-        playerLayer?.removeFromSuperlayer()
-        
-        // Hide label and set transparent background while loading
-        videoPlaceholderLabel.isHidden = true
-        videoPlaceholderView.backgroundColor = .clear
-        
-        // Try to find the video file in the asset bundle
-        if let asset = NSDataAsset(name: assetName) {
-            // Save video data to temporary file
-            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(assetName).mp4")
-            do {
-                try asset.data.write(to: tempURL)
-                setupVideoPlayer(with: tempURL)
-                print("✅ Video loaded successfully: \(assetName)")
-            } catch {
-                print("❌ Error writing video file: \(error)")
-                showVideoError()
-            }
-        } else {
-            // Fallback - try to load from bundle directly
-            if let videoURL = Bundle.main.url(forResource: assetName, withExtension: "mp4") {
-                setupVideoPlayer(with: videoURL)
-                print("✅ Video loaded from bundle: \(assetName)")
-            } else {
-                print("❌ Video asset not found: \(assetName)")
-                showVideoError()
-            }
-        }
-    }
-    
-    private func showVideoError() {
-        videoPlaceholderView.backgroundColor = .darkGray
-        videoPlaceholderLabel.isHidden = false
-        videoPlaceholderLabel.text = "Video unavailable"
-    }
-    
-    private func setupVideoPlayer(with url: URL) {
-        // Create player item and player
-        let playerItem = AVPlayerItem(url: url)
-        player = AVPlayer(playerItem: playerItem)
-        
-        // Create player layer
-        playerLayer = AVPlayerLayer(player: player)
-        playerLayer?.frame = videoPlaceholderView.bounds
-        playerLayer?.videoGravity = .resizeAspectFill
-        playerLayer?.backgroundColor = UIColor.clear.cgColor
-        
-        if let playerLayer = playerLayer {
-            // Remove any existing sublayers
-            videoPlaceholderView.layer.sublayers?.forEach { $0.removeFromSuperlayer() }
-            videoPlaceholderView.layer.addSublayer(playerLayer)
-        }
-        
-        // Setup looping
-        NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: nil)
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(playerDidFinishPlaying),
-            name: .AVPlayerItemDidPlayToEndTime,
-            object: playerItem
-        )
-        
-        // Start playing
-        player?.play()
-        print("🎬 Video player started")
-    }
-    
-    @objc private func playerDidFinishPlaying(notification: Notification) {
-        // Loop the video
-        player?.seek(to: .zero)
-        player?.play()
-    }
-    
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        // Update player layer frame when view layout changes
-        playerLayer?.frame = videoPlaceholderView.bounds
-    }
-    
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        // Pause video when leaving the screen
-        player?.pause()
-    }
-    
-    deinit {
-        // Clean up observer
-        NotificationCenter.default.removeObserver(self)
-        player?.pause()
-    }
     
     private func loadAnimatedGIF(from source: CGImageSource) {
         let frameCount = CGImageSourceGetCount(source)
@@ -389,5 +364,37 @@ final class ExerciseTutorialViewController: UIViewController {
         let cameraVC = CameraViewController()
         navigationController?.pushViewController(cameraVC, animated: true)
     }
+    
+    // MARK: - KVO Observer
+    
+    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
+        if keyPath == "status" {
+            if let playerItem = object as? AVPlayerItem {
+                switch playerItem.status {
+                case .readyToPlay:
+                    print("✅ Video ready to play - starting playback")
+                    DispatchQueue.main.async { [weak self] in
+                        self?.player?.play()
+                        print("▶️ Video playing")
+                    }
+                case .failed:
+                    print("❌ Video failed to load: \(playerItem.error?.localizedDescription ?? "unknown error")")
+                case .unknown:
+                    print("⏳ Video status unknown")
+                @unknown default:
+                    break
+                }
+            }
+        }
+    }
+    
+    // MARK: - Cleanup
+    
+    deinit {
+        // Remove observers
+        NotificationCenter.default.removeObserver(self)
+        player?.currentItem?.removeObserver(self, forKeyPath: "status")
+        player?.pause()
+        player = nil
+    }
 }
-
