@@ -7,6 +7,8 @@
 
 import UIKit
 import ImageIO
+import AVFoundation
+import AVKit
 
 /// Tutorial screen showing exercise information and proper form
 final class ExerciseTutorialViewController: UIViewController {
@@ -17,6 +19,8 @@ final class ExerciseTutorialViewController: UIViewController {
     private var exerciseName: String {
         return exercise?.name ?? "Exercise"
     }
+    private var player: AVPlayer?
+    private var playerLayer: AVPlayerLayer?
     
     // MARK: - UI Components
     
@@ -32,21 +36,13 @@ final class ExerciseTutorialViewController: UIViewController {
         return view
     }()
     
-    private let videoPlaceholderView: UIImageView = {
-        let imageView = UIImageView()
-        // Try to load an asset named "squat_animation" (add the attached GIF or an image sequence
-        // to Assets.xcassets with this name). If it's present, it'll be used here. If not, we keep
-        // the dark placeholder background until the asset is added in Xcode.
-        if let anim = UIImage(named: "squat_animation") {
-            imageView.image = anim
-        } else {
-            imageView.backgroundColor = .darkGray
-        }
-        imageView.layer.cornerRadius = 12
-        imageView.clipsToBounds = true
-        imageView.contentMode = .scaleAspectFit
-        imageView.translatesAutoresizingMaskIntoConstraints = false
-        return imageView
+    private let videoPlaceholderView: UIView = {
+        let view = UIView()
+        view.backgroundColor = .darkGray
+        view.layer.cornerRadius = 12
+        view.clipsToBounds = true
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
     }()
     
     private let videoPlaceholderLabel: UILabel = {
@@ -261,18 +257,89 @@ final class ExerciseTutorialViewController: UIViewController {
             figureImageView.tintColor = .white
         }
         
-        // Update animation/video placeholder
-        if let anim = UIImage(named: exercise.animationAssetName) {
-            videoPlaceholderView.image = anim
-            videoPlaceholderLabel.isHidden = true
-        } else {
-            videoPlaceholderView.image = nil
-            videoPlaceholderView.backgroundColor = .darkGray
-            videoPlaceholderLabel.isHidden = false
-        }
+        // Update animation/video placeholder - Load MP4 video
+        loadVideo(named: exercise.animationAssetName)
     }
     
     // MARK: - Helper Methods
+    
+    private func loadVideo(named assetName: String) {
+        // Clean up previous player if exists
+        player?.pause()
+        playerLayer?.removeFromSuperlayer()
+        
+        // Try to find the video file in the asset bundle
+        if let asset = NSDataAsset(name: assetName) {
+            // Save video data to temporary file
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(assetName).mp4")
+            do {
+                try asset.data.write(to: tempURL)
+                setupVideoPlayer(with: tempURL)
+                videoPlaceholderLabel.isHidden = true
+            } catch {
+                print("Error writing video file: \(error)")
+                videoPlaceholderLabel.isHidden = false
+            }
+        } else {
+            // Fallback - try to load from bundle directly
+            if let videoURL = Bundle.main.url(forResource: assetName, withExtension: "mp4") {
+                setupVideoPlayer(with: videoURL)
+                videoPlaceholderLabel.isHidden = true
+            } else {
+                print("Video asset not found: \(assetName)")
+                videoPlaceholderLabel.isHidden = false
+            }
+        }
+    }
+    
+    private func setupVideoPlayer(with url: URL) {
+        // Create player
+        player = AVPlayer(url: url)
+        
+        // Create player layer
+        playerLayer = AVPlayerLayer(player: player)
+        playerLayer?.frame = videoPlaceholderView.bounds
+        playerLayer?.videoGravity = .resizeAspect
+        
+        if let playerLayer = playerLayer {
+            videoPlaceholderView.layer.addSublayer(playerLayer)
+        }
+        
+        // Setup looping
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(playerDidFinishPlaying),
+            name: .AVPlayerItemDidPlayToEndTime,
+            object: player?.currentItem
+        )
+        
+        // Start playing
+        player?.play()
+    }
+    
+    @objc private func playerDidFinishPlaying(notification: Notification) {
+        // Loop the video
+        player?.seek(to: .zero)
+        player?.play()
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        // Update player layer frame when view layout changes
+        playerLayer?.frame = videoPlaceholderView.bounds
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        // Pause video when leaving the screen
+        player?.pause()
+    }
+    
+    deinit {
+        // Clean up observer
+        NotificationCenter.default.removeObserver(self)
+        player?.pause()
+    }
     
     private func loadAnimatedGIF(from source: CGImageSource) {
         let frameCount = CGImageSourceGetCount(source)
