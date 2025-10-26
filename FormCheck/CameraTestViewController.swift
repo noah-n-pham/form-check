@@ -21,6 +21,10 @@ final class CameraTestViewController: UIViewController {
     
     private let bodyDetectionManager = BodyDetectionManager()
     
+    // MARK: - Skeleton Renderer
+    
+    private var skeletonRenderer: SkeletonRenderer?
+    
     // MARK: - Keypoint Layers (Reusable)
     
     private var keypointLayers: [VNHumanBodyPoseObservation.JointName: CAShapeLayer] = [:]
@@ -51,6 +55,17 @@ final class CameraTestViewController: UIViewController {
         return button
     }()
     
+    private let skeletonToggleButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle("Skeleton: ON", for: .normal)
+        button.setTitleColor(.white, for: .normal)
+        button.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
+        button.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.7)
+        button.layer.cornerRadius = 8
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
+    }()
+    
     private let positioningGuideView: PositioningGuideView = {
         let view = PositioningGuideView()
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -66,10 +81,24 @@ final class CameraTestViewController: UIViewController {
     // MARK: - Joint Colors
     
     private let jointColors: [VNHumanBodyPoseObservation.JointName: UIColor] = [
+        // Head
+        .nose: .systemPurple,
+        
+        // Shoulders
         .leftShoulder: .systemBlue,
         .rightShoulder: .systemBlue,
+        
+        // Arms
+        .leftElbow: .systemCyan,
+        .rightElbow: .systemCyan,
+        .leftWrist: .systemMint,
+        .rightWrist: .systemMint,
+        
+        // Torso
         .leftHip: .systemGreen,
         .rightHip: .systemGreen,
+        
+        // Legs
         .leftKnee: .systemRed,
         .rightKnee: .systemRed,
         .leftAnkle: .systemYellow,
@@ -125,12 +154,22 @@ final class CameraTestViewController: UIViewController {
             debugLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
         ])
         
+        // Add skeleton toggle button
+        view.addSubview(skeletonToggleButton)
+        skeletonToggleButton.addTarget(self, action: #selector(toggleSkeletonTapped), for: .touchUpInside)
+        NSLayoutConstraint.activate([
+            skeletonToggleButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
+            skeletonToggleButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            skeletonToggleButton.widthAnchor.constraint(equalToConstant: 130),
+            skeletonToggleButton.heightAnchor.constraint(equalToConstant: 44)
+        ])
+        
         // Add back button
         view.addSubview(backButton)
         backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
         NSLayoutConstraint.activate([
             backButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
-            backButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             backButton.widthAnchor.constraint(equalToConstant: 120),
             backButton.heightAnchor.constraint(equalToConstant: 44)
         ])
@@ -152,11 +191,20 @@ final class CameraTestViewController: UIViewController {
         cameraPoseManager.setupCamera(in: view) { [weak self] success, errorMessage in
             if success {
                 print("✅ Camera test setup successful")
+                
+                // Setup skeleton renderer after camera is ready
+                self?.setupSkeletonRenderer()
             } else {
                 print("❌ Camera test setup failed: \(errorMessage ?? "Unknown error")")
                 self?.showCameraError(errorMessage ?? "Failed to setup camera")
             }
         }
+    }
+    
+    private func setupSkeletonRenderer() {
+        // Initialize skeleton renderer with preview layer
+        skeletonRenderer = SkeletonRenderer(previewLayer: cameraPoseManager.getPreviewLayer())
+        skeletonRenderer?.isEnabled = true
     }
     
     // MARK: - Keypoint Layer Creation
@@ -210,14 +258,13 @@ final class CameraTestViewController: UIViewController {
         let debugText = """
           🎥 CAMERA TEST MODE
           
-          Joints Detected: \(jointCount) / 8
-          Avg Confidence: \(String(format: "%.2f", avgConfidence))
+          Joints: \(jointCount) / 15
+          Confidence: \(String(format: "%.2f", avgConfidence))
           FPS: \(String(format: "%.1f", currentFPS))
           
-          🔵 Blue = Shoulders
-          🟢 Green = Hips
-          🔴 Red = Knees
-          🟡 Yellow = Ankles
+          🟣 Head  🔵 Shoulders
+          🩵 Elbows  🟢 Hips
+          🔴 Knees  🟡 Ankles
         """
         
         debugLabel.text = debugText
@@ -245,6 +292,22 @@ final class CameraTestViewController: UIViewController {
     
     @objc private func backButtonTapped() {
         navigationController?.popViewController(animated: true)
+    }
+    
+    @objc private func toggleSkeletonTapped() {
+        guard let renderer = skeletonRenderer else { return }
+        
+        // Toggle skeleton visibility
+        renderer.isEnabled.toggle()
+        
+        // Update button appearance
+        if renderer.isEnabled {
+            skeletonToggleButton.setTitle("Skeleton: ON", for: .normal)
+            skeletonToggleButton.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.7)
+        } else {
+            skeletonToggleButton.setTitle("Skeleton: OFF", for: .normal)
+            skeletonToggleButton.backgroundColor = UIColor.systemRed.withAlphaComponent(0.7)
+        }
     }
     
     // MARK: - Error Handling
@@ -284,6 +347,9 @@ extension CameraTestViewController: PoseDataDelegate {
         
         // Update keypoint visualizations
         updateKeypoints(with: data)
+        
+        // Update skeleton lines (green for testing, will use form color later)
+        skeletonRenderer?.updateSkeleton(poseData: data, color: .systemGreen)
         
         // Calculate average confidence
         let avgConfidence: Float

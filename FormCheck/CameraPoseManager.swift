@@ -41,10 +41,24 @@ final class CameraPoseManager: NSObject {
     // MARK: - Target Joint Keys
     
     private let targetJoints: [VNHumanBodyPoseObservation.JointName] = [
+        // Head
+        .nose,
+        
+        // Shoulders
         .leftShoulder,
         .rightShoulder,
+        
+        // Arms
+        .leftElbow,
+        .rightElbow,
+        .leftWrist,
+        .rightWrist,
+        
+        // Torso
         .leftHip,
         .rightHip,
+        
+        // Legs
         .leftKnee,
         .rightKnee,
         .leftAnkle,
