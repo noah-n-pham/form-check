@@ -361,8 +361,8 @@ final class ExerciseTutorialViewController: UIViewController {
     // MARK: - Actions
     
     @objc private func understandButtonTapped() {
-        let demoVC = TutorialDemoViewController()
-        navigationController?.pushViewController(demoVC, animated: true)
+        let cameraVC = CameraViewController()
+        navigationController?.pushViewController(cameraVC, animated: true)
     }
     
     // MARK: - KVO Observer
