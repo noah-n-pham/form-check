@@ -59,24 +59,26 @@ final class AngleCalculator {
         return angle >= min && angle <= max
     }
     
-    /// Calculate the angle from vertical (straight up) for a line from point1 to point2
+    /// Calculate the angle from vertical (straight down) for a line from point1 to point2
     /// - Parameters:
-    ///   - point1: Starting point of the line
-    ///   - point2: Ending point of the line
-    /// - Returns: Angle in degrees (0-180) from vertical
+    ///   - point1: Starting point of the line (e.g., shoulder)
+    ///   - point2: Ending point of the line (e.g., hip)
+    /// - Returns: Angle in degrees (0-90) from vertical, where 0° is perfectly upright
     static func angleFromVertical(point1: CGPoint, point2: CGPoint) -> Double {
+        // In screen coordinates, Y increases downward
+        // For a vertical line (upright torso): point1.x ≈ point2.x, point2.y > point1.y
+        // deltaY should be positive (hip below shoulder)
         let deltaY = point2.y - point1.y
-        let deltaX = point2.x - point1.x
         
-        // Calculate angle using atan2
-        let angleRadians = atan2(deltaX, -deltaY)  // Negative deltaY because screen Y increases downward
+        // Horizontal displacement (lean)
+        let deltaX = abs(point2.x - point1.x)  // Absolute value - we only care about magnitude of lean
+        
+        // Calculate angle from vertical using atan2
+        // atan2(horizontal, vertical) gives angle from vertical axis
+        // Result: 0° = vertical, 45° = 45° lean, 90° = horizontal
+        let angleRadians = atan2(deltaX, deltaY)
         let angleDegrees = angleRadians * 180.0 / .pi
         
-        // Normalize to 0-180 range
-        if angleDegrees < 0 {
-            return -angleDegrees
-        } else {
-            return angleDegrees
-        }
+        return angleDegrees
     }
 }

@@ -21,6 +21,9 @@ final class RepCounter {
     /// Number of reps with bad form
     private(set) var badFormReps: Int = 0
     
+    /// Number of partial reps (didn't reach full depth)
+    private(set) var partialReps: Int = 0
+    
     /// Previous squat state for detecting state transitions
     private var previousState: SquatState = .standing
     
@@ -30,6 +33,9 @@ final class RepCounter {
     /// Track if user actually went through inSquat phase (prevents false counts)
     private var wentThroughSquatPhase: Bool = false
     
+    /// Track if user attempted a squat movement (descending phase)
+    private var attemptedSquatMovement: Bool = false
+    
     // MARK: - Public Methods
     
     /// Update rep counter with new analysis result
@@ -37,7 +43,12 @@ final class RepCounter {
     func updateWithAnalysis(_ result: FormAnalysisResult) {
         let currentState = result.squatState
         
-        // Track that we entered the squat phase
+        // Track that we started a squat attempt
+        if currentState == .descending {
+            attemptedSquatMovement = true
+        }
+        
+        // Track that we entered the full squat phase (reached depth)
         if currentState == .inSquat {
             wentThroughSquatPhase = true
             
@@ -49,37 +60,44 @@ final class RepCounter {
             }
         }
         
-        // Detect complete rep cycle: ascending → standing (after going through inSquat)
+        // Detect complete cycle: ascending → standing
         if previousState == .ascending && currentState == .standing {
-            // Only count if we actually went through a squat
             if wentThroughSquatPhase {
-                // ALWAYS increment total reps (regardless of form quality)
+                // FULL REP: Reached proper depth
                 totalReps += 1
                 
-                // Categorize the rep based on form quality
+                // Categorize based on form quality
                 if wasFormGoodDuringSquat {
                     goodFormReps += 1
-                    print("✅ REP COUNTED: #\(totalReps) - GOOD FORM")
+                    print("✅ FULL REP COUNTED: #\(totalReps) - GOOD FORM")
                 } else {
                     badFormReps += 1
-                    print("❌ REP COUNTED: #\(totalReps) - BAD FORM")
+                    print("❌ FULL REP COUNTED: #\(totalReps) - BAD FORM")
                 }
                 
-                print("📊 Rep Summary: Total: \(totalReps) | Good: \(goodFormReps) | Bad: \(badFormReps)")
-            } else {
-                print("⚠️  Partial movement detected - not counting as rep (didn't reach squat depth)")
+                let totalAttempts = totalReps + partialReps
+                print("📊 Rep Summary: Total Attempts: \(totalAttempts) | Full: \(totalReps) (✅\(goodFormReps) good, ❌\(badFormReps) bad) | Partial: \(partialReps)")
+                
+            } else if attemptedSquatMovement {
+                // PARTIAL REP: Tried to squat but didn't reach depth
+                partialReps += 1
+                let totalAttempts = totalReps + partialReps
+                print("⚠️  PARTIAL REP COUNTED: #\(totalAttempts) (didn't reach full depth)")
+                print("📊 Rep Summary: Total Attempts: \(totalAttempts) | Full: \(totalReps) | Partial: \(partialReps)")
             }
             
-            // Reset tracking for next rep
+            // Reset tracking for next attempt
             wasFormGoodDuringSquat = true
             wentThroughSquatPhase = false
+            attemptedSquatMovement = false
         }
         
-        // Reset form tracking when starting new descent
+        // Reset tracking when starting new descent
         if previousState == .standing && currentState == .descending {
             wasFormGoodDuringSquat = true
             wentThroughSquatPhase = false
-            print("🔄 Starting new rep cycle")
+            attemptedSquatMovement = true
+            print("🔄 Starting new squat attempt")
         }
         
         previousState = currentState
@@ -91,7 +109,8 @@ final class RepCounter {
         return RepCountData(
             totalReps: totalReps,
             goodFormReps: goodFormReps,
-            badFormReps: badFormReps
+            badFormReps: badFormReps,
+            partialReps: partialReps
         )
     }
     
@@ -100,9 +119,11 @@ final class RepCounter {
         totalReps = 0
         goodFormReps = 0
         badFormReps = 0
+        partialReps = 0
         previousState = .standing
         wasFormGoodDuringSquat = true
         wentThroughSquatPhase = false
+        attemptedSquatMovement = false
         print("🔄 Rep counter reset")
     }
 }

@@ -44,8 +44,8 @@ final class SideSelector {
     /// Hysteresis threshold - other side must be this much better (%) to switch
     private let switchThreshold: Float = 0.15  // 15% better
     
-    /// Minimum acceptable average confidence for a side
-    private let minAcceptableConfidence: Float = 0.6
+    /// Minimum acceptable average confidence for a side (lowered to prevent visual freezing)
+    private let minAcceptableConfidence: Float = 0.55  // More lenient - prevents freezing
     
     // MARK: - Public Methods
     
@@ -109,6 +109,7 @@ final class SideSelector {
     // MARK: - Private Methods
     
     /// Calculate quality score for one side of the body
+    /// More lenient - allows 3 out of 4 joints for robustness
     private func calculateSideQuality(
         shoulder: CGPoint?,
         hip: CGPoint?,
@@ -120,36 +121,51 @@ final class SideSelector {
         ankleConf: Float?,
         side: BodySide
     ) -> FilteredPoseData? {
-        // All four joints must be present
-        guard let s = shoulder,
-              let h = hip,
-              let k = knee,
-              let a = ankle,
-              let sc = shoulderConf,
-              let hc = hipConf,
-              let kc = kneeConf,
-              let ac = ankleConf else {
+        // Collect available joints with good confidence
+        var goodJoints: [(point: CGPoint, conf: Float, type: String)] = []
+        
+        if let s = shoulder, let sc = shoulderConf, sc >= FormCheckConstants.CONFIDENCE_THRESHOLD {
+            goodJoints.append((s, sc, "shoulder"))
+        }
+        if let h = hip, let hc = hipConf, hc >= FormCheckConstants.CONFIDENCE_THRESHOLD {
+            goodJoints.append((h, hc, "hip"))
+        }
+        if let k = knee, let kc = kneeConf, kc >= FormCheckConstants.CONFIDENCE_THRESHOLD {
+            goodJoints.append((k, kc, "knee"))
+        }
+        if let a = ankle, let ac = ankleConf, ac >= FormCheckConstants.CONFIDENCE_THRESHOLD {
+            goodJoints.append((a, ac, "ankle"))
+        }
+        
+        // Require at least 3 out of 4 joints (more robust to temporary occlusion)
+        guard goodJoints.count >= 3 else {
             return nil
         }
         
-        // All joints must meet confidence threshold
-        guard sc >= FormCheckConstants.CONFIDENCE_THRESHOLD,
-              hc >= FormCheckConstants.CONFIDENCE_THRESHOLD,
-              kc >= FormCheckConstants.CONFIDENCE_THRESHOLD,
-              ac >= FormCheckConstants.CONFIDENCE_THRESHOLD else {
+        // For critical joints (hip, knee, ankle for squat analysis), must have all 3
+        let hasHip = hip != nil && (hipConf ?? 0) >= FormCheckConstants.CONFIDENCE_THRESHOLD
+        let hasKnee = knee != nil && (kneeConf ?? 0) >= FormCheckConstants.CONFIDENCE_THRESHOLD
+        let hasAnkle = ankle != nil && (ankleConf ?? 0) >= FormCheckConstants.CONFIDENCE_THRESHOLD
+        
+        guard hasHip && hasKnee && hasAnkle else {
+            // Missing critical joint for squat analysis
             return nil
         }
+        
+        // Use actual joint values (shoulder can be missing if we have hip/knee/ankle)
+        let finalShoulder = shoulder ?? hip!  // Use hip as fallback if shoulder missing
+        let finalShoulderConf = shoulderConf ?? hipConf!
         
         return FilteredPoseData(
             side: side,
-            shoulder: s,
-            hip: h,
-            knee: k,
-            ankle: a,
-            shoulderConf: sc,
-            hipConf: hc,
-            kneeConf: kc,
-            ankleConf: ac
+            shoulder: finalShoulder,
+            hip: hip!,
+            knee: knee!,
+            ankle: ankle!,
+            shoulderConf: finalShoulderConf,
+            hipConf: hipConf!,
+            kneeConf: kneeConf!,
+            ankleConf: ankleConf!
         )
     }
     

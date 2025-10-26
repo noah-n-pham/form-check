@@ -45,17 +45,33 @@ struct FormAnalysisResult {
     /// Primary form issue if any, nil if form is good
     let primaryIssue: String?
     
+    /// Array of ALL detected form issues (empty if form is good)
+    let allIssues: [String]
+    
     /// Calculated knee angle in degrees, nil if not calculable
     let kneeAngle: Double?
     
     /// Current state in the squat movement cycle
     let squatState: SquatState
     
-    init(isGoodForm: Bool, primaryIssue: String?, kneeAngle: Double?, squatState: SquatState) {
+    init(isGoodForm: Bool, primaryIssue: String?, allIssues: [String] = [], kneeAngle: Double?, squatState: SquatState) {
         self.isGoodForm = isGoodForm
         self.primaryIssue = primaryIssue
+        self.allIssues = allIssues
         self.kneeAngle = kneeAngle
         self.squatState = squatState
+    }
+    
+    /// User-friendly feedback message showing all issues or success
+    var feedbackMessage: String {
+        if isGoodForm {
+            return "Good form! ✓"
+        } else if allIssues.isEmpty {
+            return primaryIssue ?? "Check your form"
+        } else {
+            // Show all issues
+            return allIssues.joined(separator: " | ")
+        }
     }
 }
 
@@ -63,7 +79,7 @@ struct FormAnalysisResult {
 
 /// Tracks repetition counts and performance metrics
 struct RepCountData {
-    /// Total number of reps completed
+    /// Total number of full reps completed
     let totalReps: Int
     
     /// Number of reps with good form
@@ -72,16 +88,25 @@ struct RepCountData {
     /// Number of reps with bad form
     let badFormReps: Int
     
-    /// Percentage of reps with good form (0-100)
+    /// Number of partial reps (didn't reach full depth)
+    let partialReps: Int
+    
+    /// Total number of all attempts (full + partial)
+    var totalAttempts: Int {
+        return totalReps + partialReps
+    }
+    
+    /// Percentage of full reps with good form (0-100)
     var goodFormPercentage: Double {
         guard totalReps > 0 else { return 0.0 }
         return (Double(goodFormReps) / Double(totalReps)) * 100.0
     }
     
-    init(totalReps: Int, goodFormReps: Int, badFormReps: Int) {
+    init(totalReps: Int, goodFormReps: Int, badFormReps: Int, partialReps: Int = 0) {
         self.totalReps = totalReps
         self.goodFormReps = goodFormReps
         self.badFormReps = badFormReps
+        self.partialReps = partialReps
     }
 }
 

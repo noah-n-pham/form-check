@@ -34,7 +34,8 @@ struct FormCheckConstants {
     
     /// Minimum confidence threshold for joint detection (0.0-1.0)
     /// Only joints with confidence above this value are used
-    static let CONFIDENCE_THRESHOLD: Float = 0.5
+    /// Lowered to 0.45 for better stability in real-world conditions
+    static let CONFIDENCE_THRESHOLD: Float = 0.45
     
     // MARK: - Performance Settings
     

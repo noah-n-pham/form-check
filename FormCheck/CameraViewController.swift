@@ -203,13 +203,17 @@ extension CameraViewController: PoseDataDelegate {
         previousState = formResult.squatState
         
         // 4. Update SkeletonRenderer color based on isGoodForm
-        // Use smart side selection to filter visual data
+        // Use smart side selection to filter visual data, but fall back to showing all joints if quality is poor
         if let filteredVisualData = sideSelector.selectBestSide(from: data) {
             // Create filtered PoseData with only the selected side's joints
             let visualPoseData = createFilteredPoseData(from: filteredVisualData)
             
             let skeletonColor: UIColor = formResult.isGoodForm ? .systemGreen : .systemRed
             skeletonRenderer?.updateSkeleton(poseData: visualPoseData, color: skeletonColor)
+        } else {
+            // Both sides have poor quality - show all available joints anyway (better than freezing)
+            let skeletonColor: UIColor = formResult.isGoodForm ? .systemGreen : .systemRed
+            skeletonRenderer?.updateSkeleton(poseData: data, color: skeletonColor)
         }
         
         // === Developer A's Visual Components ===
@@ -271,8 +275,14 @@ extension CameraViewController: PoseDataDelegate {
         // Format knee angle
         let kneeAngleText = formResult.kneeAngle.map { String(format: "%.1f°", $0) } ?? "N/A"
         
-        // Format rep counts
-        let repsText = "\(repData.totalReps) total (✅ \(repData.goodFormReps) good, ❌ \(repData.badFormReps) bad)"
+        // Format rep counts with partial reps
+        let fullRepsText = "\(repData.totalReps) full (✅ \(repData.goodFormReps) good, ❌ \(repData.badFormReps) bad)"
+        let partialRepsText = repData.partialReps > 0 ? ", ⚠️  \(repData.partialReps) partial" : ""
+        let totalAttemptsText = "Total: \(repData.totalAttempts)"
+        let repsText = "\(totalAttemptsText) | \(fullRepsText)\(partialRepsText)"
+        
+        // Format feedback message (shows all issues or "Good form!")
+        let feedbackText = formResult.feedbackMessage
         
         // Print comprehensive log
         print("""
@@ -280,8 +290,16 @@ extension CameraViewController: PoseDataDelegate {
            State: \(stateText)
            Form: \(formText)
            Knee Angle: \(kneeAngleText)
-           Issue: \(formResult.primaryIssue ?? "None")
+           Feedback: \(feedbackText)
            Reps: \(repsText)
         """)
+        
+        // Show detailed issue breakdown if multiple issues
+        if !formResult.allIssues.isEmpty && formResult.allIssues.count > 1 {
+            print("   ⚠️  Multiple Issues:")
+            for (index, issue) in formResult.allIssues.enumerated() {
+                print("      \(index + 1). \(issue)")
+            }
+        }
     }
 }

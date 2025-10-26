@@ -280,31 +280,54 @@ final class SquatAnalyzer {
         
         print("   Back Angle: \(String(format: "%.1f°", backAngle)) from vertical (threshold: \(FormCheckConstants.BACK_ANGLE_THRESHOLD)°), Good: \(isGoodBackAngle)")
         
-        // Determine if form is good and identify primary issue
+        // Determine if form is good and collect ALL issues
         let isGoodForm = isGoodKneeAngle && isGoodKneePosition && isGoodBackAngle
         
+        var allIssues: [String] = []
         var primaryIssue: String?
         
-        if !isGoodForm {
-            // Determine primary issue based on priority
-            if !isGoodKneeAngle {
-                if kneeAngle < FormCheckConstants.GOOD_KNEE_ANGLE_MIN {
-                    primaryIssue = String(format: "Knee angle too small (%.0f°) - going too deep", kneeAngle)
-                } else {
-                    primaryIssue = String(format: "Not deep enough (%.0f° knee angle)", kneeAngle)
-                }
-            } else if !isGoodKneePosition {
-                primaryIssue = "Knees too far forward"
-            } else if !isGoodBackAngle {
-                primaryIssue = String(format: "Keep back more upright (%.0f° lean)", backAngle)
+        // Check each form criterion and add specific feedback
+        if !isGoodKneeAngle {
+            let kneeIssue: String
+            if kneeAngle < FormCheckConstants.GOOD_KNEE_ANGLE_MIN {
+                kneeIssue = "Going too deep"
+            } else {
+                kneeIssue = "Not deep enough"
+            }
+            allIssues.append(kneeIssue)
+            if primaryIssue == nil {
+                primaryIssue = kneeIssue  // First issue becomes primary
             }
         }
         
-        print("   Overall Form: \(isGoodForm ? "✅ GOOD" : "❌ BAD") - \(primaryIssue ?? "None")")
+        if !isGoodKneePosition {
+            let kneePositionIssue = "Knees too far forward"
+            allIssues.append(kneePositionIssue)
+            if primaryIssue == nil {
+                primaryIssue = kneePositionIssue
+            }
+        }
+        
+        if !isGoodBackAngle {
+            let backIssue = "Keep back more upright"
+            allIssues.append(backIssue)
+            if primaryIssue == nil {
+                primaryIssue = backIssue
+            }
+        }
+        
+        // Logging
+        if isGoodForm {
+            print("   Overall Form: ✅ GOOD - All checks passed!")
+        } else {
+            print("   Overall Form: ❌ BAD")
+            print("   Issues Detected: \(allIssues.joined(separator: " | "))")
+        }
         
         return FormAnalysisResult(
             isGoodForm: isGoodForm,
             primaryIssue: primaryIssue,
+            allIssues: allIssues,
             kneeAngle: kneeAngle,
             squatState: state
         )
