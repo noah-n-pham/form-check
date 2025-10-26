@@ -19,7 +19,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         // Create the app window and set up a navigation stack
         let window = UIWindow(windowScene: windowScene)
-        let root = ViewController()                  // Your home screen
+        let root = HomeViewController()                  // Your home screen
         let nav = UINavigationController(rootViewController: root)
         window.rootViewController = nav
         self.window = window
