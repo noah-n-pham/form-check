@@ -36,7 +36,7 @@
 <h3 align="center">Form Check</h3>
 
   <p align="center">
-    Description
+    AI that perfects movement for a healthier you.
     <br />
   </p>
 </div>
