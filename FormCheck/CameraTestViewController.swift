@@ -17,6 +17,10 @@ final class CameraTestViewController: UIViewController {
     
     private let cameraPoseManager = CameraPoseManager()
     
+    // MARK: - Body Detection Manager
+    
+    private let bodyDetectionManager = BodyDetectionManager()
+    
     // MARK: - Keypoint Layers (Reusable)
     
     private var keypointLayers: [VNHumanBodyPoseObservation.JointName: CAShapeLayer] = [:]
@@ -45,6 +49,12 @@ final class CameraTestViewController: UIViewController {
         button.layer.cornerRadius = 8
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
+    }()
+    
+    private let positioningGuideView: PositioningGuideView = {
+        let view = PositioningGuideView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
     }()
     
     // MARK: - FPS Tracking
@@ -79,6 +89,8 @@ final class CameraTestViewController: UIViewController {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        bodyDetectionManager.reset()
+        positioningGuideView.show(animated: false)
         cameraPoseManager.startCapture()
     }
     
@@ -96,6 +108,15 @@ final class CameraTestViewController: UIViewController {
     // MARK: - Setup
     
     private func setupUI() {
+        // Add positioning guide (full screen overlay)
+        view.addSubview(positioningGuideView)
+        NSLayoutConstraint.activate([
+            positioningGuideView.topAnchor.constraint(equalTo: view.topAnchor),
+            positioningGuideView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            positioningGuideView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            positioningGuideView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+        
         // Add debug label
         view.addSubview(debugLabel)
         NSLayoutConstraint.activate([
@@ -250,6 +271,17 @@ extension CameraTestViewController: PoseDataDelegate {
         // Calculate FPS
         calculateFPS()
         
+        // Update body detection state
+        let bodyDetected = bodyDetectionManager.updateDetectionState(poseData: data)
+        
+        // Update positioning guide visibility
+        let shouldShowGuide = bodyDetectionManager.shouldShowPositioningGuide()
+        if shouldShowGuide {
+            positioningGuideView.show(animated: true)
+        } else {
+            positioningGuideView.hide(animated: true)
+        }
+        
         // Update keypoint visualizations
         updateKeypoints(with: data)
         
@@ -266,7 +298,8 @@ extension CameraTestViewController: PoseDataDelegate {
         updateDebugLabel(jointCount: data.jointPositions.count, avgConfidence: avgConfidence)
         
         // Debug logging
-        print("🦴 Test Mode: Detected \(data.jointPositions.count) joints | FPS: \(String(format: "%.1f", currentFPS))")
+        let detectionStatus = bodyDetected ? "✅" : "❌"
+        print("🦴 Test Mode: \(detectionStatus) Body: \(bodyDetected) | Joints: \(data.jointPositions.count) | FPS: \(String(format: "%.1f", currentFPS))")
     }
 }
 
