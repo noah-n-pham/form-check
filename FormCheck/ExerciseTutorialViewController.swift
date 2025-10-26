@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import ImageIO
 
 /// Tutorial screen showing exercise information and proper form
 final class ExerciseTutorialViewController: UIViewController {
@@ -70,18 +71,9 @@ final class ExerciseTutorialViewController: UIViewController {
     
     private let figureImageView: UIImageView = {
         let imageView = UIImageView()
-        // Prefer a bundled asset named "quadriceps_muscles" (add the attached image to Assets.xcassets
-        // with that name). If it's not available (e.g., running on Windows or before adding the asset),
-        // fall back to the system symbol.
-        if let bundled = UIImage(named: "quadriceps_muscles") {
-            imageView.image = bundled
-        } else {
-            let config = UIImage.SymbolConfiguration(pointSize: 80, weight: .light)
-            imageView.image = UIImage(systemName: "figure.stand", withConfiguration: config)
-            imageView.tintColor = .white
-        }
         imageView.contentMode = .scaleAspectFit
         imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.clipsToBounds = true
         return imageView
     }()
     
@@ -250,9 +242,45 @@ final class ExerciseTutorialViewController: UIViewController {
         // Update secondary muscles
         secondaryMusclesListLabel.text = exercise.secondaryMuscles
         
-        // Update tutorial image
+        // Update tutorial image (supports both static images and animated GIFs)
         if let bundled = UIImage(named: exercise.tutorialImageName) {
             figureImageView.image = bundled
+            
+            // For animated GIFs from assets, check if there's animation data
+            if let imageData = NSDataAsset(name: exercise.tutorialImageName)?.data,
+               let source = CGImageSourceCreateWithData(imageData as CFData, nil) {
+                let frameCount = CGImageSourceGetCount(source)
+                
+                if frameCount > 1 {
+                    // This is an animated GIF - load all frames
+                    var images: [UIImage] = []
+                    var totalDuration: TimeInterval = 0
+                    
+                    for i in 0..<frameCount {
+                        if let cgImage = CGImageSourceCreateImageAtIndex(source, i, nil) {
+                            // Get frame duration
+                            let frameProperties = CGImageSourceCopyPropertiesAtIndex(source, i, nil) as? [String: Any]
+                            let gifProperties = frameProperties?[kCGImagePropertyGIFDictionary as String] as? [String: Any]
+                            let frameDuration = gifProperties?[kCGImagePropertyGIFDelayTime as String] as? Double ?? 0.1
+                            
+                            totalDuration += frameDuration
+                            images.append(UIImage(cgImage: cgImage))
+                        }
+                    }
+                    
+                    if !images.isEmpty {
+                        figureImageView.animationImages = images
+                        figureImageView.animationDuration = totalDuration
+                        figureImageView.animationRepeatCount = 0 // Loop forever
+                        figureImageView.startAnimating()
+                    }
+                }
+            }
+        } else {
+            // Fallback to system symbol
+            let config = UIImage.SymbolConfiguration(pointSize: 80, weight: .light)
+            figureImageView.image = UIImage(systemName: "figure.stand", withConfiguration: config)
+            figureImageView.tintColor = .white
         }
         
         // Update animation/video placeholder
