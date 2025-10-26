@@ -16,7 +16,9 @@ struct Exercise {
     let tutorialImageName: String
     let animationAssetName: String
     let buttonIconName: String
+    let customButtonIconName: String? // Optional custom icon from assets
     let buttonColor: UIColor
+    let requiresEquipment: Bool
 }
 
 /// Exercise data manager
@@ -30,7 +32,9 @@ struct ExerciseDataSource {
             tutorialImageName: "quadriceps_muscles",
             animationAssetName: "squat_animation",
             buttonIconName: "figure.strengthtraining.traditional",
-            buttonColor: .systemOrange
+            customButtonIconName: nil,
+            buttonColor: .systemOrange,
+            requiresEquipment: true
         ),
         Exercise(
             name: "Free Bodyweight Squats",
@@ -40,7 +44,9 @@ struct ExerciseDataSource {
             tutorialImageName: "quadriceps_muscles",
             animationAssetName: "squat_animation",
             buttonIconName: "figure.squat",
-            buttonColor: UIColor(red: 0.36, green: 0.36, blue: 1.0, alpha: 1.0) // Blue-purple color
+            customButtonIconName: "bodyweight_squat_icon",
+            buttonColor: UIColor(red: 0.20, green: 0.40, blue: 0.80, alpha: 1.0), // More blue, less purple
+            requiresEquipment: false
         )
     ]
     

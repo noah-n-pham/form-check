@@ -7,8 +7,20 @@
 
 import UIKit
 
+/// Filter type for exercises
+enum ExerciseFilter: String, CaseIterable {
+    case all = "All exercises"
+    case withEquipment = "With equipment"
+    case noEquipment = "No equipment"
+}
+
 /// Home screen with exercise selection
 final class HomeViewController: UIViewController {
+    
+    // MARK: - Properties
+    
+    private var currentFilter: ExerciseFilter = .all
+    private var filteredExercises: [Exercise] = ExerciseDataSource.allExercises
     
     // MARK: - UI Components
     
@@ -50,84 +62,12 @@ final class HomeViewController: UIViewController {
         return button
     }()
     
-    private let barbellSquatsButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.backgroundColor = .systemOrange
-        button.layer.cornerRadius = 16
-        button.translatesAutoresizingMaskIntoConstraints = false
-        return button
-    }()
-    
-    private let barbellIconView: UIImageView = {
-        let imageView = UIImageView()
-        let config = UIImage.SymbolConfiguration(pointSize: 28, weight: .bold)
-        imageView.image = UIImage(systemName: "figure.strengthtraining.traditional", withConfiguration: config)
-        imageView.tintColor = .white
-        imageView.translatesAutoresizingMaskIntoConstraints = false
-        return imageView
-    }()
-    
-    private let barbellTitleLabel: UILabel = {
-        let label = UILabel()
-        label.text = "Barbell Back Squats"
-        label.font = .systemFont(ofSize: 18, weight: .semibold)
-        label.textColor = .white
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
-    
-    private let barbellHeartButton: UIButton = {
-        let button = UIButton(type: .system)
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
-        button.setImage(UIImage(systemName: "heart", withConfiguration: config), for: .normal)
-        button.tintColor = .white
-        button.translatesAutoresizingMaskIntoConstraints = false
-        return button
-    }()
-    
-    private let bodyweightSquatsButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.backgroundColor = UIColor(red: 0.36, green: 0.36, blue: 1.0, alpha: 1.0) // Blue-purple color
-        button.layer.cornerRadius = 16
-        button.translatesAutoresizingMaskIntoConstraints = false
-        return button
-    }()
-    
-    private let bodyweightIconContainer: UIView = {
-        let view = UIView()
-        view.backgroundColor = UIColor(red: 0.42, green: 0.35, blue: 0.80, alpha: 1.0) // Darker blue-purple for circle
-        view.layer.cornerRadius = 24 // Will be circular
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
-    }()
-    
-    private let bodyweightIconView: UIImageView = {
-        let imageView = UIImageView()
-        let config = UIImage.SymbolConfiguration(pointSize: 24, weight: .bold)
-        imageView.image = UIImage(systemName: "figure.squat", withConfiguration: config)
-        imageView.tintColor = .white
-        imageView.translatesAutoresizingMaskIntoConstraints = false
-        return imageView
-    }()
-    
-    private let bodyweightTitleLabel: UILabel = {
-        let label = UILabel()
-        label.text = "Free Bodyweight\nSquats"
-        label.font = .systemFont(ofSize: 16, weight: .semibold)
-        label.textColor = .white
-        label.numberOfLines = 2
-        label.textAlignment = .left
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
-    
-    private let bodyweightHeartButton: UIButton = {
-        let button = UIButton(type: .system)
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
-        button.setImage(UIImage(systemName: "heart", withConfiguration: config), for: .normal)
-        button.tintColor = .white
-        button.translatesAutoresizingMaskIntoConstraints = false
-        return button
+    private let exerciseStackView: UIStackView = {
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.spacing = 16
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        return stackView
     }()
     
     // MARK: - Lifecycle
@@ -135,6 +75,8 @@ final class HomeViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        setupDropdownAction()
+        updateExerciseDisplay()
     }
     
     // MARK: - Setup
@@ -148,23 +90,7 @@ final class HomeViewController: UIViewController {
         view.addSubview(dropdownButton)
         view.addSubview(favoriteButton)
         view.addSubview(searchButton)
-        view.addSubview(barbellSquatsButton)
-        view.addSubview(bodyweightSquatsButton)
-        
-        // Setup barbell button content
-        barbellSquatsButton.addSubview(barbellIconView)
-        barbellSquatsButton.addSubview(barbellTitleLabel)
-        barbellSquatsButton.addSubview(barbellHeartButton)
-        
-        // Setup bodyweight button content
-        bodyweightSquatsButton.addSubview(bodyweightIconContainer)
-        bodyweightIconContainer.addSubview(bodyweightIconView)
-        bodyweightSquatsButton.addSubview(bodyweightTitleLabel)
-        bodyweightSquatsButton.addSubview(bodyweightHeartButton)
-        
-        // Add button actions
-        barbellSquatsButton.addTarget(self, action: #selector(barbellSquatsButtonTapped), for: .touchUpInside)
-        bodyweightSquatsButton.addTarget(self, action: #selector(bodyweightSquatsButtonTapped), for: .touchUpInside)
+        view.addSubview(exerciseStackView)
         
         // Layout constraints
         NSLayoutConstraint.activate([
@@ -190,69 +116,139 @@ final class HomeViewController: UIViewController {
             searchButton.widthAnchor.constraint(equalToConstant: 32),
             searchButton.heightAnchor.constraint(equalToConstant: 32),
             
-            // Barbell squats button
-            barbellSquatsButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
-            barbellSquatsButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
-            barbellSquatsButton.topAnchor.constraint(equalTo: dropdownButton.bottomAnchor, constant: 32),
-            barbellSquatsButton.heightAnchor.constraint(equalToConstant: 80),
-            
-            // Barbell icon
-            barbellIconView.leadingAnchor.constraint(equalTo: barbellSquatsButton.leadingAnchor, constant: 20),
-            barbellIconView.centerYAnchor.constraint(equalTo: barbellSquatsButton.centerYAnchor),
-            barbellIconView.widthAnchor.constraint(equalToConstant: 32),
-            barbellIconView.heightAnchor.constraint(equalToConstant: 32),
-            
-            // Barbell title
-            barbellTitleLabel.leadingAnchor.constraint(equalTo: barbellIconView.trailingAnchor, constant: 16),
-            barbellTitleLabel.centerYAnchor.constraint(equalTo: barbellSquatsButton.centerYAnchor),
-            
-            // Barbell heart
-            barbellHeartButton.trailingAnchor.constraint(equalTo: barbellSquatsButton.trailingAnchor, constant: -20),
-            barbellHeartButton.centerYAnchor.constraint(equalTo: barbellSquatsButton.centerYAnchor),
-            barbellHeartButton.widthAnchor.constraint(equalToConstant: 32),
-            barbellHeartButton.heightAnchor.constraint(equalToConstant: 32),
-            
-            // Bodyweight squats button
-            bodyweightSquatsButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
-            bodyweightSquatsButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
-            bodyweightSquatsButton.topAnchor.constraint(equalTo: barbellSquatsButton.bottomAnchor, constant: 16),
-            bodyweightSquatsButton.heightAnchor.constraint(equalToConstant: 80),
-            
-            // Bodyweight icon container (circular background)
-            bodyweightIconContainer.leadingAnchor.constraint(equalTo: bodyweightSquatsButton.leadingAnchor, constant: 12),
-            bodyweightIconContainer.centerYAnchor.constraint(equalTo: bodyweightSquatsButton.centerYAnchor),
-            bodyweightIconContainer.widthAnchor.constraint(equalToConstant: 48),
-            bodyweightIconContainer.heightAnchor.constraint(equalToConstant: 48),
-            
-            // Bodyweight icon centered in container
-            bodyweightIconView.centerXAnchor.constraint(equalTo: bodyweightIconContainer.centerXAnchor),
-            bodyweightIconView.centerYAnchor.constraint(equalTo: bodyweightIconContainer.centerYAnchor),
-            bodyweightIconView.widthAnchor.constraint(equalToConstant: 24),
-            bodyweightIconView.heightAnchor.constraint(equalToConstant: 24),
-            
-            // Bodyweight title
-            bodyweightTitleLabel.leadingAnchor.constraint(equalTo: bodyweightIconContainer.trailingAnchor, constant: 12),
-            bodyweightTitleLabel.centerYAnchor.constraint(equalTo: bodyweightSquatsButton.centerYAnchor),
-            
-            // Bodyweight heart
-            bodyweightHeartButton.trailingAnchor.constraint(equalTo: bodyweightSquatsButton.trailingAnchor, constant: -16),
-            bodyweightHeartButton.centerYAnchor.constraint(equalTo: bodyweightSquatsButton.centerYAnchor),
-            bodyweightHeartButton.widthAnchor.constraint(equalToConstant: 32),
-            bodyweightHeartButton.heightAnchor.constraint(equalToConstant: 32),
+            // Exercise stack view
+            exerciseStackView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            exerciseStackView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+            exerciseStackView.topAnchor.constraint(equalTo: dropdownButton.bottomAnchor, constant: 32),
         ])
     }
     
-        // MARK: - Actions
-    
-    @objc private func barbellSquatsButtonTapped() {
-        let exercise = ExerciseDataSource.getExercise(byName: "Barbell Back Squats")
-        let tutorialVC = ExerciseTutorialViewController()
-        tutorialVC.exercise = exercise
-        navigationController?.pushViewController(tutorialVC, animated: true)
+    private func setupDropdownAction() {
+        let action = UIAction { [weak self] _ in
+            self?.showFilterMenu()
+        }
+        dropdownButton.addAction(action, for: .touchUpInside)
     }
     
-    @objc private func bodyweightSquatsButtonTapped() {
-        let exercise = ExerciseDataSource.getExercise(byName: "Free Bodyweight Squats")
+    private func showFilterMenu() {
+        let alertController = UIAlertController(title: "Filter Exercises", message: nil, preferredStyle: .actionSheet)
+        
+        for filter in ExerciseFilter.allCases {
+            let action = UIAlertAction(title: filter.rawValue, style: .default) { [weak self] _ in
+                self?.selectFilter(filter)
+            }
+            // Mark current selection
+            if filter == currentFilter {
+                action.setValue(true, forKey: "checked")
+            }
+            alertController.addAction(action)
+        }
+        
+        alertController.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        // For iPad
+        if let popover = alertController.popoverPresentationController {
+            popover.sourceView = dropdownButton
+            popover.sourceRect = dropdownButton.bounds
+        }
+        
+        present(alertController, animated: true)
+    }
+    
+    private func selectFilter(_ filter: ExerciseFilter) {
+        currentFilter = filter
+        dropdownButton.setTitle("\(filter.rawValue) ▼", for: .normal)
+        updateFilteredExercises()
+        updateExerciseDisplay()
+    }
+    
+    private func updateFilteredExercises() {
+        switch currentFilter {
+        case .all:
+            filteredExercises = ExerciseDataSource.allExercises
+        case .withEquipment:
+            filteredExercises = ExerciseDataSource.allExercises.filter { $0.requiresEquipment }
+        case .noEquipment:
+            filteredExercises = ExerciseDataSource.allExercises.filter { !$0.requiresEquipment }
+        }
+    }
+    
+    private func updateExerciseDisplay() {
+        // Clear existing buttons
+        exerciseStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        
+        // Create buttons for filtered exercises
+        for exercise in filteredExercises {
+            let button = createExerciseButton(for: exercise)
+            exerciseStackView.addArrangedSubview(button)
+        }
+    }
+    
+    private func createExerciseButton(for exercise: Exercise) -> UIView {
+        let button = UIButton(type: .system)
+        button.backgroundColor = exercise.buttonColor
+        button.layer.cornerRadius = 16
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.heightAnchor.constraint(equalToConstant: 80).isActive = true
+        
+        // Icon view
+        let iconView = UIImageView()
+        // Check if there's a custom icon in assets
+        if let customIconName = exercise.customButtonIconName, let customIcon = UIImage(named: customIconName) {
+            iconView.image = customIcon
+            iconView.tintColor = .white
+        } else {
+            let config = UIImage.SymbolConfiguration(pointSize: 28, weight: .bold)
+            iconView.image = UIImage(systemName: exercise.buttonIconName, withConfiguration: config)
+            iconView.tintColor = .white
+        }
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconView.contentMode = .scaleAspectFit
+        
+        // Title label
+        let titleLabel = UILabel()
+        titleLabel.text = exercise.name
+        titleLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+        titleLabel.textColor = .white
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Heart button
+        let heartButton = UIButton(type: .system)
+        let heartConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
+        heartButton.setImage(UIImage(systemName: "heart", withConfiguration: heartConfig), for: .normal)
+        heartButton.tintColor = .white
+        heartButton.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add subviews
+        button.addSubview(iconView)
+        button.addSubview(titleLabel)
+        button.addSubview(heartButton)
+        
+        // Layout
+        NSLayoutConstraint.activate([
+            iconView.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 20),
+            iconView.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+            iconView.widthAnchor.constraint(equalToConstant: 32),
+            iconView.heightAnchor.constraint(equalToConstant: 32),
+            
+            titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 16),
+            titleLabel.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+            
+            heartButton.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -20),
+            heartButton.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+            heartButton.widthAnchor.constraint(equalToConstant: 32),
+            heartButton.heightAnchor.constraint(equalToConstant: 32),
+        ])
+        
+        // Add action
+        button.addAction(UIAction { [weak self] _ in
+            self?.openExerciseTutorial(exercise)
+        }, for: .touchUpInside)
+        
+        return button
+    }
+    
+    private func openExerciseTutorial(_ exercise: Exercise) {
         let tutorialVC = ExerciseTutorialViewController()
         tutorialVC.exercise = exercise
         navigationController?.pushViewController(tutorialVC, animated: true)
