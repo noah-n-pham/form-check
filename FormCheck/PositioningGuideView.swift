@@ -14,9 +14,20 @@ final class PositioningGuideView: UIView {
     
     private let instructionLabel: UILabel = {
         let label = UILabel()
-        label.text = "Position yourself 6 feet away, side view"
+        label.text = "Stand 6 feet to the side of your phone\nShow your full side profile"
         label.textColor = .white
-        label.font = .systemFont(ofSize: 20, weight: .semibold)
+        label.font = .systemFont(ofSize: 18, weight: .semibold)
+        label.textAlignment = .center
+        label.numberOfLines = 0
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
+    private let subtitleLabel: UILabel = {
+        let label = UILabel()
+        label.text = "Make sure your shoulders, hips, knees, and ankles are visible"
+        label.textColor = UIColor.white.withAlphaComponent(0.8)
+        label.font = .systemFont(ofSize: 14, weight: .regular)
         label.textAlignment = .center
         label.numberOfLines = 0
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -52,15 +63,22 @@ final class PositioningGuideView: UIView {
         
         // Add subviews
         addSubview(instructionLabel)
+        addSubview(subtitleLabel)
         addSubview(stickFigureView)
         
         // Layout constraints
         NSLayoutConstraint.activate([
-            // Instruction label - top third
+            // Instruction label - top
             instructionLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
-            instructionLabel.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor, constant: 100),
+            instructionLabel.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor, constant: 80),
             instructionLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 40),
             instructionLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -40),
+            
+            // Subtitle label - below instruction
+            subtitleLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
+            subtitleLabel.topAnchor.constraint(equalTo: instructionLabel.bottomAnchor, constant: 12),
+            subtitleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 40),
+            subtitleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -40),
             
             // Stick figure - center
             stickFigureView.centerXAnchor.constraint(equalTo: centerXAnchor),

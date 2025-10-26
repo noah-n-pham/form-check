@@ -13,22 +13,18 @@ final class BodyDetectionManager {
     
     // MARK: - Properties
     
-    /// Timestamp of last valid full body detection (all 8 joints)
+    /// Timestamp of last valid full body detection
     private var lastValidDetectionTime: Date?
     
     /// Counter for consecutive frames without full body detection
     private var consecutiveFramesWithoutBody: Int = 0
     
-    /// Required joints for full body detection
-    private let requiredJoints: Set<VNHumanBodyPoseObservation.JointName> = [
-        .leftShoulder,
-        .rightShoulder,
-        .leftHip,
-        .rightHip,
-        .leftKnee,
-        .rightKnee,
-        .leftAnkle,
-        .rightAnkle
+    /// Critical joints for side view detection (at least one from each pair must be visible)
+    private let criticalJointPairs: [(VNHumanBodyPoseObservation.JointName, VNHumanBodyPoseObservation.JointName)] = [
+        (.leftShoulder, .rightShoulder),
+        (.leftHip, .rightHip),
+        (.leftKnee, .rightKnee),
+        (.leftAnkle, .rightAnkle)
     ]
     
     /// Maximum time since last valid detection (2 seconds)
@@ -41,25 +37,35 @@ final class BodyDetectionManager {
     
     /// Updates detection state based on current pose data
     /// - Parameter poseData: Current pose data from Vision framework
-    /// - Returns: true if body is properly detected (all joints present with good confidence)
+    /// - Returns: true if body is properly detected (critical joints visible for side view)
     func updateDetectionState(poseData: PoseData) -> Bool {
         let currentTime = Date()
         
-        // Check if all required joints are detected with sufficient confidence
-        let hasAllJoints = requiredJoints.allSatisfy { jointName in
-            guard let confidence = poseData.confidences[jointName] else {
-                return false
+        // For side view, we need at least one joint from each critical pair (shoulder, hip, knee, ankle)
+        // Since left/right joints overlap in side view, we only need one from each pair
+        var pairsDetected = 0
+        
+        for (leftJoint, rightJoint) in criticalJointPairs {
+            let leftDetected = isJointValid(leftJoint, in: poseData)
+            let rightDetected = isJointValid(rightJoint, in: poseData)
+            
+            // At least one joint from this pair must be detected
+            if leftDetected || rightDetected {
+                pairsDetected += 1
             }
-            return confidence >= FormCheckConstants.CONFIDENCE_THRESHOLD
         }
         
-        if hasAllJoints {
-            // Full body detected - update timestamp and reset counter
+        // Consider body detected if we have at least 3 out of 4 critical pairs
+        // (shoulder, hip, knee, ankle - can miss one due to occlusion)
+        let hasValidBody = pairsDetected >= 3
+        
+        if hasValidBody {
+            // Body detected - update timestamp and reset counter
             lastValidDetectionTime = currentTime
             consecutiveFramesWithoutBody = 0
             return true
         } else {
-            // Not all joints detected - increment counter
+            // Not enough joints detected - increment counter
             consecutiveFramesWithoutBody += 1
             
             // Check if we have recent valid detection (within last 2 seconds)
@@ -73,6 +79,14 @@ final class BodyDetectionManager {
             
             return false
         }
+    }
+    
+    /// Checks if a joint is detected with sufficient confidence
+    private func isJointValid(_ jointName: VNHumanBodyPoseObservation.JointName, in poseData: PoseData) -> Bool {
+        guard let confidence = poseData.confidences[jointName] else {
+            return false
+        }
+        return confidence >= FormCheckConstants.CONFIDENCE_THRESHOLD
     }
     
     /// Checks if positioning guide should be shown

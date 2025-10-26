@@ -244,14 +244,29 @@ final class CameraPoseManager: NSObject {
         do {
             try handler.perform([poseDetectionRequest])
             
-            guard let observation = poseDetectionRequest.results?.first else {
-                return
+            if let observation = poseDetectionRequest.results?.first {
+                // Body detected by Vision, process it
+                processPoseObservation(observation)
+            } else {
+                // No body detected at all - send empty pose data for real-time UI updates
+                sendEmptyPoseData()
             }
-            
-            processPoseObservation(observation)
             
         } catch {
             print("❌ Pose detection failed: \(error.localizedDescription)")
+            // Send empty data on error too, so UI can update
+            sendEmptyPoseData()
+        }
+    }
+    
+    private func sendEmptyPoseData() {
+        let emptyPoseData = PoseData(
+            jointPositions: [:],
+            confidences: [:]
+        )
+        
+        DispatchQueue.main.async { [weak self] in
+            self?.delegate?.didUpdatePoseData(emptyPoseData)
         }
     }
     
@@ -276,12 +291,8 @@ final class CameraPoseManager: NSObject {
             }
         }
         
-        // Only send pose data if we have at least some joints
-        guard !jointPositions.isEmpty else {
-            return
-        }
-        
-        // Create PoseData and notify delegate
+        // Always create and send PoseData, even if empty
+        // This ensures real-time updates when user moves out of frame
         let poseData = PoseData(
             jointPositions: jointPositions,
             confidences: confidences
