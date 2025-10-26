@@ -84,8 +84,13 @@ final class HomeViewController: UIViewController {
     // MARK: - Actions
     
     @objc private func startButtonTapped() {
-        let cameraVC = CameraViewController()
-        navigationController?.pushViewController(cameraVC, animated: true)
+        // TEMPORARY: Navigate to test view instead of production view
+        let cameraTestVC = CameraTestViewController()
+        navigationController?.pushViewController(cameraTestVC, animated: true)
+        
+        // Production view (will use this later):
+        // let cameraVC = CameraViewController()
+        // navigationController?.pushViewController(cameraVC, animated: true)
     }
 }
 
