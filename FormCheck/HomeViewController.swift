@@ -195,7 +195,8 @@ final class HomeViewController: UIViewController {
         let iconView = UIImageView()
         // Check if there's a custom icon in assets
         if let customIconName = exercise.customButtonIconName, let customIcon = UIImage(named: customIconName) {
-            iconView.image = customIcon
+            // Render custom icon as template to make it white
+            iconView.image = customIcon.withRenderingMode(.alwaysTemplate)
             iconView.tintColor = .white
         } else {
             let config = UIImage.SymbolConfiguration(pointSize: 28, weight: .bold)
