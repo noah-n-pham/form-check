@@ -23,14 +23,9 @@ final class ViewController: UIViewController {
     }
 
     @objc private func tapStart() {
-        // For Step 1a this can be a placeholder.
-        // In Step 1b/Step 2 we'll push CameraViewController here.
-        let alert = UIAlertController(
-            title: "Next Step Ready",
-            message: "This is where we'll open the camera screen in Step 1b.",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
+        // Step 1b: push the camera shell screen
+        let vc = CameraViewController()
+        navigationController?.pushViewController(vc, animated: true)
+        // If navigationController is nil, ensure SceneDelegate sets a UINavigationController as root.
     }
 }
