@@ -273,11 +273,9 @@ Standing → Descending → In Squat → Ascending → Standing (Rep Complete)
 
 ### Mechanical Engineering Major
 
-<img height="64" width="64" src="https://media.licdn.com/dms/image/v2/D5635AQENzoDA6Gp37g/profile-framedphoto-shrink_400_400/profile-framedphoto-shrink_400_400/0/1737068686781?e=1762095600&v=beta&t=KynEgleJQBrb9Iv5HN8SrIvpwo1vUabVh9uxoHlMhXs">
+<img height="64" width="64" src="https://media.licdn.com/dms/image/v2/D5603AQGHiAMAtDRLRA/profile-displayphoto-shrink_800_800/profile-displayphoto-shrink_800_800/0/1724520420851?e=1764201600&v=beta&t=d5jwXS1FEoS7o-XIcXVVJg6KzFRkc20_eQ-jxyz10UU">
 
 - **Matt Tang** - tangm1@ufl.edu
-
-**Project Repository**: [https://github.com/noah-n-pham/form-check](https://github.com/noah-n-pham/form-check)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
