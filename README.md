@@ -55,27 +55,27 @@
 
 ### Why FormCheck?
 
-- **🎯 Prevent Injuries**: Bad form is the #1 cause of workout injuries. FormCheck catches form issues in real-time.
-- **💪 Improve Performance**: Scientific angle analysis and depth tracking ensure optimal technique.
-- **📊 Track Progress**: Comprehensive session summaries with performance trends and coaching advice.
-- **🔒 Private & Secure**: All processing happens on-device. No data leaves your phone.
-- **🚀 Always Available**: No subscription, no internet required, no personal trainer needed.
+- **Prevent Injuries**: Real-time form detection catches technique issues before they cause injury.
+- **Improve Performance**: Scientific angle analysis and depth tracking ensure optimal technique.
+- **Track Progress**: Comprehensive session summaries with performance trends and coaching advice.
+- **Private & Secure**: All processing happens on-device. No data leaves your phone.
+- **Always Available**: No subscription or internet connection required.
 
 ### Key Features
 
-#### 🎥 **Real-Time Form Analysis**
+#### Real-Time Form Analysis
 - Live skeletal overlay showing body positioning
 - Color-coded feedback (green = good form, red = needs correction)
 - Instant coaching cues during workout
 - Precise angle measurements for knees and back
 
-#### 📈 **Smart Rep Counting**
+#### Smart Rep Counting
 - Automatic rep detection with state machine
 - Quality scoring for each rep (0-100)
 - Animated counter with haptic feedback
 - Prevents false counts from bouncing
 
-#### 🧠 **Intelligent Coaching System**
+#### Intelligent Coaching System
 - Detects 6+ common form issues:
   - Knees tracking too far forward
   - Insufficient depth
@@ -83,26 +83,26 @@
   - Back angle problems
   - Hip shooting up early
   - Knee valgus (caving in)
-- Provides actionable, specific coaching advice
+- Provides actionable coaching advice
 - Tracks most common issues across session
 
-#### 📊 **Comprehensive Session Summary**
+#### Comprehensive Session Summary
 - Total reps with average, highest, and lowest quality scores
-- Performance rating with encouraging messages
+- Performance rating with encouragement
 - Most common form issue identification
 - Performance trend analysis (improvement vs. fatigue)
 - Personalized coaching recommendations
 
-#### 🎨 **Beautiful Modern UI**
+#### Modern UI
 - Clean, intuitive 4-screen flow
 - Exercise tutorial screens with proper form guidance
 - Setup instructions for optimal camera placement
 - Smooth animations and transitions
 - Dark mode optimized interface
 
-#### 📱 **Workout Options**
+#### Workout Options
 - **Barbell Back Squats**: For weighted training
-- **Bodyweight Squats**: Perfect for beginners or mobility work
+- **Bodyweight Squats**: For beginners or mobility work
 
 ### Built With
 
@@ -134,11 +134,10 @@
 
 ### Prerequisites
 
-- **iOS 18.0+** (Required for latest Vision APIs)
-- **iPhone 13 or newer** (Recommended for optimal performance)
-  - Pro models offer enhanced camera capabilities
-- **Xcode 15.0+** (For development)
-- **macOS** (iOS development requires Mac)
+- **iOS 18.0+** - Required for latest Vision APIs
+- **iPhone 13 or newer** - Recommended for optimal performance
+- **Xcode 15.0+** - For development
+- **macOS** - Required for iOS development
 
 ### Installation
 
@@ -184,7 +183,7 @@
 
 3. **Position Your Camera**
    - Place iPhone 6-8 feet away at waist height
-   - **IMPORTANT**: Use a side angle view (not front-facing)
+   - Use a side angle view (not front-facing)
    - Ensure your full body is visible in frame
    - Use landscape orientation for best results
 
@@ -240,7 +239,7 @@ Real-Time Feedback + Skeletal Overlay
 
 **Rep Counter** uses state machine:
 ```
-Standing → Descending → In Squat → Ascending → Standing (Rep Complete!)
+Standing → Descending → In Squat → Ascending → Standing (Rep Complete)
 ```
 
 ### Key Algorithms
@@ -289,11 +288,11 @@ This project was built for the **UF AI Days Hackathon 2025**.
 
 Special thanks to:
 
-* [**UF AI Days Hackathon**](https://ai.ufl.edu/about/ai-days/) - For hosting this amazing event
+* [**UF AI Days Hackathon**](https://ai.ufl.edu/about/ai-days/) - Event host
 * [**Vobile**](https://vobilegroup.com/home?lang=en-us) - Event sponsor
 * [**UF SASE**](https://ufsase.com/) - Supporting organization
-* **Apple Developer Documentation** - Excellent Vision framework guides
-* **UF Computer Science Department** - For our education and support
+* **Apple Developer Documentation** - Vision framework guides
+* **UF Computer Science Department** - Education and support
 
 ### Technologies & Resources
 
@@ -308,9 +307,9 @@ Special thanks to:
 
 <div align="center">
 
-**Built with ❤️ by the FormCheck Team**
+**Developed by the FormCheck Team**
 
-*Making workouts safer, smarter, and more effective—one rep at a time.*
+*Making workouts safer, smarter, and more effective.*
 
 </div>
 
