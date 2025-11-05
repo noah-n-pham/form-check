@@ -51,7 +51,7 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-**FormCheck** is an intelligent iOS workout companion that uses Apple's Vision framework and real-time computer vision to analyze squat form. Designed for iOS 18+ devices, FormCheck provides instant feedback on technique, counts reps, and delivers personalized coaching insights—all without requiring an internet connection.
+**FormCheck** is an intelligent iOS workout companion that uses Apple's Vision framework and real-time computer vision to analyze squat form. Designed for iOS 18+ devices, FormCheck provides instant feedback on technique, counts reps, and delivers personalized coaching insights. You don't even need an internet connection!
 
 ### Why FormCheck?
 
